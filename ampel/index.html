@@ -116,13 +116,16 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
 .hud {
   position: absolute; top: 12px; right: max(12px, env(safe-area-inset-right, 0px));
   background: rgba(4, 20, 32, .72); border-radius: 14px; padding: 12px 16px;
-  display: grid; gap: 8px; min-width: 210px; color: #fff;
+  display: grid; gap: 8px; min-width: 260px; color: #fff;
 }
 .hud-top { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; }
-.hud-top .dot { width: 18px; height: 18px; border-radius: 50%; background: var(--off); flex-shrink: 0; }
-.hud-top .dot[data-s="green"] { background: var(--green); }
-.hud-top .dot[data-s="yellow"] { background: var(--yellow); }
-.hud-top .dot[data-s="red"] { background: var(--red); }
+.hud-meter { position: relative; height: 18px; border-radius: 9px; background: rgba(255,255,255,.18); overflow: hidden; }
+.hud-meter .f { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0); background: #9aa4b1; will-change: transform; }
+.hud-meter .f[data-s="green"] { background: var(--green); }
+.hud-meter .f[data-s="yellow"] { background: var(--yellow); }
+.hud-meter .f[data-s="red"] { background: var(--red); }
+.hud-meter .m { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: #fff; opacity: .85; }
+.hud-label { font-size: 15px; color: #cfe3ee; }
 .hud-next { font-size: 15px; color: #cfe3ee; font-variant-numeric: tabular-nums; }
 .hud-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; }
 .hud-bar div { height: 100%; background: #7dd3fc; transform-origin: left center; transform: scaleX(0); }
@@ -175,7 +178,9 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
   <div class="tank" id="tank" hidden>
     <canvas id="tankCv" aria-label="Aquarium. Ist die Klasse leise, kommen neue Fische dazu."></canvas>
     <div class="hud">
-      <div class="hud-top"><span class="dot" id="aqDot"></span><span id="aqCount">0 Fische</span></div>
+      <div class="hud-top"><span id="aqCount">0 Fische</span></div>
+      <div class="hud-label">Lautstärke</div>
+      <div class="hud-meter" aria-hidden="true"><div class="f" id="aqLvl"></div><div class="m" id="aqMY"></div><div class="m" id="aqMR"></div></div>
       <div class="hud-next" id="aqNext">Nächster Fisch: –</div>
       <div class="hud-bar"><div id="aqBar"></div></div>
     </div>
@@ -253,7 +258,7 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
     word.textContent = s ? LABELS[s] : "Bereit";
     if (onShow) onShow(s);
   }
-  let onShow = null;
+  let onShow = null, onLevel = null;
 
   function renderCfg() {
     $("yellowIn").value = cfg.yellow; $("redIn").value = cfg.red; $("holdIn").value = cfg.hold;
@@ -305,6 +310,7 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
     // Glätten: schnell hoch, langsam runter
     level += (raw - level) * (raw > level ? 0.25 : 0.08);
     fill.style.transform = "scaleX(" + (level / 100).toFixed(3) + ")";
+    if (onLevel) onLevel(level);
 
     const target = level >= cfg.red ? "red" : level >= cfg.yellow ? "yellow" : "green";
     const rank = { green: 0, yellow: 1, red: 2 };
@@ -359,7 +365,7 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
     if (stream) stream.getTracks().forEach((t) => t.stop());
     stream = null; analyser = null;
     if (ctx && ctx.state === "running") ctx.suspend().catch(() => {});
-    fill.style.transform = "scaleX(0)";
+    fill.style.transform = "scaleX(0)"; if (onLevel) onLevel(0);
     startBtn.textContent = "Start"; startBtn.disabled = false;
     releaseAwake();
   }
@@ -637,7 +643,8 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
   }
   function aqHud() {
     $("aqCount").textContent = aq.n === 1 ? "1 Fisch" : aq.n + " Fische";
-    $("aqDot").dataset.s = shown || "";
+    $("aqLvl").dataset.s = shown || "";
+    $("aqMY").style.left = cfg.yellow + "%"; $("aqMR").style.left = cfg.red + "%";
     const total = cfg.fish * 60000;
     const left = Math.max(0, total - aq.progress);
     const m = Math.floor(left / 60000), sec = Math.ceil((left % 60000) / 1000);
@@ -649,6 +656,7 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
     $("aqMsg").hidden = mode === "mic";
   }
 
+  onLevel = (l) => { if (tankOn) $("aqLvl").style.transform = "scaleX(" + (l / 100).toFixed(3) + ")"; };
   let redSince = 0, lastTick = performance.now(), saveIn = 0;
   onShow = (s) => {
     if (s === "red" && mode === "mic") { removeFish(); aq.progress = 0; redSince = performance.now(); }
