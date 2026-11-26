@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><style>body{margin:0}[hidden]{display:none!important}</style></head><body>
+<title>Timer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../schrift/schrift.css">
+<style>
+/* Eine Bildschirmseite: große Restzeit, darunter Balken und Bedienung. Dunkel für Beamer, keine Dauer-Animationen. */
+:root {
+  --bg: #0f1216;
+  --panel: #1a1f26;
+  --line: #2c333d;
+  --fg: #f3f5f7;
+  --muted: #9aa4b1;
+  --green: #22c55e;
+  --yellow: #facc15;
+  --red: #ef4444;
+  --off: #252b33;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font);
+  font-size: 16px; overflow: hidden; -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none; touch-action: manipulation;
+}
+body.done { background: var(--red); }
+.app {
+  height: 100%; display: flex; flex-direction: column; align-items: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box; gap: 14px;
+}
+.stage {
+  flex: 1; min-height: 0; width: 100%; max-width: 1400px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh;
+}
+.time {
+  font-weight: 700; line-height: 1; margin: 0; white-space: nowrap;
+  font-size: min(26vw, 42vh); display: flex; align-items: baseline;
+}
+/* Jede Ziffer gleich breit, damit nichts springt */
+.time span { display: inline-block; width: .6em; text-align: center; }
+.time span.c { width: .3em; }
+.time[data-s="last"] { color: var(--yellow); }
+body.done .time { color: #fff; font-size: min(15vw, 26vh); }
+.over { color: var(--muted); font-size: clamp(18px, 3vw, 34px); font-variant-numeric: tabular-nums; margin: 0; min-height: 1.2em; }
+body.done .over { color: #fff; }
+
+.track { width: min(100%, 1100px); height: clamp(14px, 2.4vh, 26px); border-radius: 999px; background: var(--off); overflow: hidden; }
+.track .fill {
+  height: 100%; background: var(--green); transform-origin: left center; transform: scaleX(1);
+  transition: transform 1s linear; will-change: transform;
+}
+.track .fill[data-s="last"] { background: var(--yellow); }
+.track .fill.jump { transition: none; }
+body.done .track { visibility: hidden; }
+
+.bar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+button.btn {
+  font: inherit; font-size: 20px; font-weight: 700; color: var(--fg);
+  background: var(--panel); border: 2px solid var(--line); border-radius: 14px;
+  min-height: 56px; min-width: 64px; padding: 0 20px; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+button.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); min-width: 150px; }
+button.btn[aria-pressed="true"] { border-color: var(--fg); }
+button.btn:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+button.btn:disabled { opacity: .4; }
+body.done button.btn { background: #fff; color: #7f1d1d; border-color: #fff; }
+
+.presets button.btn.sel { border-color: var(--fg); background: #2a313b; }
+.adjust { align-items: center; }
+.adjust .lbl { color: var(--muted); font-size: 18px; padding: 0 4px; }
+/* Während der Timer läuft: nur das Nötigste zeigen */
+body.running .setup, body.done .setup { display: none; }
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .app { gap: 8px; }
+  button.btn { min-height: 48px; font-size: 18px; padding: 0 14px; }
+  .time { font-size: min(22vw, 36vh); }
+}
+@media (prefers-reduced-motion: reduce) { .track .fill { transition: none; } }
+</style>
+
+<div class="app">
+  <main class="stage">
+    <h1 class="time" id="time" aria-live="off"></h1>
+    <p class="over" id="over"></p>
+    <div class="track" aria-hidden="true"><div class="fill" id="fill"></div></div>
+  </main>
+
+  <div class="bar setup presets" id="presets" role="group" aria-label="Schnellauswahl">
+    <button class="btn" data-m="1">1 min</button>
+    <button class="btn" data-m="2">2 min</button>
+    <button class="btn" data-m="3">3 min</button>
+    <button class="btn" data-m="5">5 min</button>
+    <button class="btn" data-m="10">10 min</button>
+    <button class="btn" data-m="15">15 min</button>
+    <button class="btn" data-m="20">20 min</button>
+  </div>
+  <div class="bar setup adjust" role="group" aria-label="Zeit genau einstellen">
+    <button class="btn" data-d="-60" aria-label="Eine Minute weniger">− 1 min</button>
+    <button class="btn" data-d="-10" aria-label="Zehn Sekunden weniger">− 10 s</button>
+    <button class="btn" data-d="10" aria-label="Zehn Sekunden mehr">+ 10 s</button>
+    <button class="btn" data-d="60" aria-label="Eine Minute mehr">+ 1 min</button>
+  </div>
+  <nav class="bar">
+    <button class="btn primary" id="startBtn">Start</button>
+    <button class="btn" id="plusBtn" hidden>+ 1 min</button>
+    <button class="btn" id="resetBtn">Zurück</button>
+    <button class="btn" id="soundBtn" aria-pressed="true">Ton an</button>
+    <button class="btn" id="fsBtn">Vollbild</button>
+  </nav>
+</div>
+
+<script>
+(() => {
+  const KEY = "timer-v1";
+  const MAX = 99 * 60 + 59;
+  const LAST = 60;                // letzte Minute: gelb
+  let cfg = { secs: 300, sound: true };
+  try { Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) {} };
+
+  const $ = (id) => document.getElementById(id);
+  const timeEl = $("time"), overEl = $("over"), fill = $("fill");
+  const startBtn = $("startBtn"), resetBtn = $("resetBtn"), plusBtn = $("plusBtn"), soundBtn = $("soundBtn");
+  const presetBtns = [...document.querySelectorAll("#presets button")];
+
+  // Zustand: idle (eingestellt) | running | paused | done
+  let state = "idle";
+  let total = cfg.secs;           // Gesamtdauer dieses Durchlaufs (für den Balken)
+  let left = cfg.secs * 1000;     // Restzeit in ms, solange nicht läuft
+  let endAt = 0;                  // Zeitpunkt (performance.now) des Endes, solange läuft
+  let tick = null, lastShown = null;
+
+  const fmt = (s) => {
+    const m = Math.floor(s / 60), r = s % 60;
+    return (m < 10 ? "0" + m : "" + m) + ":" + (r < 10 ? "0" : "") + r;
+  };
+  function drawTime(s) {
+    const t = fmt(s);
+    if (t === lastShown) return;
+    lastShown = t;
+    timeEl.innerHTML = [...t].map((ch) => ch === ":" ? '<span class="c">:</span>' : "<span>" + ch + "</span>").join("");
+    timeEl.setAttribute("aria-label", "Noch " + Math.floor(s / 60) + " Minuten " + (s % 60) + " Sekunden");
+  }
+  function remainingMs() { return state === "running" ? endAt - performance.now() : left; }
+
+  function render(jump) {
+    const ms = Math.max(0, remainingMs());
+    const s = Math.ceil(ms / 1000);
+    if (state !== "done") drawTime(s);
+    const last = state !== "idle" && s <= LAST && total > LAST;
+    timeEl.dataset.s = last ? "last" : "";
+    fill.dataset.s = last ? "last" : "";
+    // Balken zeigt, wo er in einer Sekunde sein soll; CSS gleitet linear dorthin (1 Neuzeichnung pro Sekunde)
+    const glide = state === "running" && !jump;
+    const target = (glide ? Math.max(0, ms - 1000) : ms) / (total * 1000);
+    fill.classList.toggle("jump", !glide);
+    fill.style.transform = "scaleX(" + Math.min(1, target).toFixed(4) + ")";
+  }
+
+  function loop() {
+    if (state === "running") {
+      const ms = endAt - performance.now();
+      if (ms <= 0) return finish();
+      const s = Math.ceil(ms / 1000);
+      if (fmt(s) !== lastShown) render();
+    } else if (state === "done") {
+      const over = Math.floor((performance.now() - endAt) / 1000);
+      overEl.textContent = "seit " + fmt(over);
+    }
+  }
+
+  function setSecs(s) {
+    s = Math.max(5, Math.min(MAX, s));
+    cfg.secs = s; save();
+    total = s; left = s * 1000; state = "idle";
+    presetBtns.forEach((b) => b.classList.toggle("sel", +b.dataset.m * 60 === s));
+    updateUi(); render(true);
+  }
+
+  function start() {
+    unlockAudio();
+    if (state === "idle") { total = cfg.secs; left = cfg.secs * 1000; }
+    if (state === "done") { document.body.classList.remove("done"); overEl.textContent = ""; lastShown = null; state = "idle"; total = cfg.secs; left = cfg.secs * 1000; }
+    endAt = performance.now() + left;
+    state = "running";
+    clearInterval(tick); tick = setInterval(loop, 200);
+    keepAwake(); updateUi(); render(true);
+    requestAnimationFrame(() => render());
+  }
+  function pause() {
+    left = Math.max(0, endAt - performance.now());
+    state = "paused";
+    clearInterval(tick); tick = null;
+    releaseAwake(); updateUi(); render(true);
+  }
+  function reset() {
+    clearInterval(tick); tick = null;
+    document.body.classList.remove("done");
+    overEl.textContent = "";
+    lastShown = null;
+    releaseAwake();
+    setSecs(cfg.secs);
+  }
+  function finish() {
+    state = "done";
+    lastShown = null;
+    timeEl.textContent = "Zeit ist um!";
+    timeEl.removeAttribute("aria-label");
+    overEl.textContent = "seit 00:00";
+    document.body.classList.add("done");
+    updateUi(); render(true);
+    if (cfg.sound) gong();
+    // Läuft weiter, um die Überziehung zu zeigen; Bildschirm bleibt an, bis "Zurück" getippt wird
+  }
+  function addMinute() {
+    if (state === "running") { endAt += 60000; total += 60; }
+    else if (state === "paused") { left += 60000; total += 60; }
+    else if (state === "done") {
+      document.body.classList.remove("done"); overEl.textContent = "";
+      total = 60; endAt = performance.now() + 60000; state = "running"; lastShown = null;
+    }
+    updateUi(); render(true); requestAnimationFrame(() => render());
+  }
+
+  function updateUi() {
+    document.body.classList.toggle("running", state === "running" || state === "paused");
+    startBtn.textContent = state === "running" ? "Pause" : state === "paused" ? "Weiter" : state === "done" ? "Nochmal" : "Start";
+    plusBtn.hidden = state === "idle";
+    resetBtn.hidden = state === "idle";
+    resetBtn.textContent = "Zurück";
+    if (state !== "done") overEl.textContent = state === "paused" ? "Pause" : "";
+  }
+
+  startBtn.addEventListener("click", () => state === "running" ? pause() : start());
+  resetBtn.addEventListener("click", reset);
+  plusBtn.addEventListener("click", addMinute);
+  presetBtns.forEach((b) => b.addEventListener("click", () => setSecs(+b.dataset.m * 60)));
+  document.querySelectorAll(".adjust button").forEach((b) => b.addEventListener("click", () => {
+    const d = +b.dataset.d;
+    let s = cfg.secs + d;
+    if (Math.abs(d) === 10) s = Math.round(s / 10) * 10;
+    setSecs(s);
+  }));
+  // Tastatur am Laptop: Leertaste = Start/Pause
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space") { e.preventDefault(); state === "running" ? pause() : start(); }
+    else if (e.key === "Escape" && state !== "idle") reset();
+  });
+
+  // Ton: kurzer Gong aus drei Schlägen, ohne Audiodatei. iPad braucht dafür vorher einen Tipp (Start).
+  let ctx = null;
+  function unlockAudio() {
+    if (!cfg.sound) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!ctx && AC) ctx = new AC();
+      if (ctx && ctx.state !== "running") ctx.resume();
+      // Stiller Ton schaltet Safari frei
+      if (ctx) { const o = ctx.createOscillator(), g = ctx.createGain(); g.gain.value = 0; o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.01); }
+    } catch (e) {}
+  }
+  function gong() {
+    if (!ctx) return;
+    try {
+      if (ctx.state !== "running") ctx.resume();
+      const t0 = ctx.currentTime + 0.05;
+      [0, 0.9, 1.8].forEach((off) => {
+        [[660, 0.5], [990, 0.25], [1320, 0.12]].forEach(([f, v]) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = "sine"; o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, t0 + off);
+          g.gain.exponentialRampToValueAtTime(v, t0 + off + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + off + 1.6);
+          o.connect(g).connect(ctx.destination);
+          o.start(t0 + off); o.stop(t0 + off + 1.7);
+        });
+      });
+    } catch (e) {}
+  }
+  function renderSound() {
+    soundBtn.setAttribute("aria-pressed", String(cfg.sound));
+    soundBtn.textContent = cfg.sound ? "Ton an" : "Ton aus";
+  }
+  soundBtn.addEventListener("click", () => {
+    cfg.sound = !cfg.sound; save(); renderSound();
+    if (cfg.sound) { unlockAudio(); if (state !== "running") gong(); }
+  });
+
+  // Bildschirm wach halten, solange der Timer läuft oder abgelaufen ist
+  let lock = null;
+  async function keepAwake() {
+    try { if ("wakeLock" in navigator && !lock) { lock = await navigator.wakeLock.request("screen"); lock.addEventListener("release", () => { lock = null; }); } } catch (e) {}
+  }
+  function releaseAwake() { try { lock && lock.release(); } catch (e) {} lock = null; }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (state === "running" || state === "done") keepAwake();
+    loop(); render(true); requestAnimationFrame(() => render());
+  });
+
+  // Vollbild (am iPad nicht überall verfügbar)
+  const fsBtn = $("fsBtn");
+  const root = document.documentElement;
+  const canFs = root.requestFullscreen || root.webkitRequestFullscreen;
+  if (!canFs) fsBtn.hidden = true;
+  fsBtn.addEventListener("click", () => {
+    const inFs = document.fullscreenElement || document.webkitFullscreenElement;
+    try {
+      const p = inFs
+        ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+        : canFs.call(root);
+      if (p && p.catch) p.catch(() => { fsBtn.hidden = true; });
+    } catch (e) { fsBtn.hidden = true; }
+  });
+
+  renderSound();
+  setSecs(cfg.secs);
+})();
+</script>
