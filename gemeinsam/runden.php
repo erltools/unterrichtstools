@@ -1,5 +1,5 @@
 <?php
-// Gemeinsamer Server-Teil für Tools mit Runden (Wortwolke, Abstimmung).
+// Gemeinsamer Server-Teil für Tools mit Runden (Wortwolke, Abstimmung, Gruppen).
 // Kein Datenbank-Server: Jede Runde ist eine JSON-Datei im Ordner DIR des Tools.
 // Gespeichert werden keine Namen und keine IP-Adressen. Runden werden nach 24 Stunden gelöscht.
 //

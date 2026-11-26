@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Gruppen einteilen</title>
+<link rel="stylesheet" href="../schrift/schrift.css">
+<link rel="stylesheet" href="../gemeinsam/zurueck.css">
+<link rel="stylesheet" href="../gemeinsam/runde.css">
+<style>
+/* Gruppen einteilen: Lehrkraft-Ansicht (ohne ?r=) und Schüler-Ansicht (mit ?r=CODE). Grundaussehen: ../gemeinsam/runde.css */
+:root { --accent:#fbbf24; --accent-dim:#33270b; }
+
+/* Start: Zähler mit − und + */
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper button { width: 64px; min-height: 56px; padding: 0; font-size: 30px; line-height: 1; }
+.stepper output { min-width: 3ch; text-align: center; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
+.hint { margin: 6px 0 0; font-size: 15px; line-height: 1.4; }
+.names { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.nm { display: flex; gap: 8px; align-items: center; }
+.nm input[type=text] { font-size: 18px; padding: 10px 12px; }
+.num { width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 20px; color: #0b1220; }
+
+/* Laufende Runde: Gruppen-Kacheln */
+#tiles { flex: 1; min-width: 0; display: grid; gap: clamp(8px, 1.2vw, 14px); grid-template-columns: repeat(var(--cols, 2), 1fr); grid-auto-rows: 1fr; }
+.tile { border-radius: 16px; color: #0b1220; display: flex; align-items: center; gap: clamp(10px, 1.6vw, 20px); padding: clamp(10px, 1.6vw, 22px); min-height: 0; min-width: 0; overflow: hidden; }
+.tile .n { width: var(--ts, 64px); height: var(--ts, 64px); flex-shrink: 0; border-radius: 50%; background: rgba(11,18,32,.88); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: calc(var(--ts, 64px) * .55); }
+.tile .t { flex: 1; min-width: 0; font-weight: 700; font-size: calc(var(--ts, 64px) * .6); line-height: 1.1; overflow-wrap: break-word; hyphens: auto; }
+#tiles.oneline .tile .t { white-space: nowrap; }
+.tile input[type=text] { flex: 1; min-width: 0; font-size: 20px; padding: 10px 12px; background: rgba(255,255,255,.92); color: #0b1220; border-color: rgba(11,18,32,.5); }
+#count { color: var(--fg); font-size: clamp(22px, 2.6vw, 32px); font-weight: 700; }
+#count small { display: block; color: var(--muted); font-size: 15px; font-weight: 400; margin-top: 2px; }
+.full { color: #fbbf24; font-weight: 700; text-align: center; font-size: 17px; }
+.btnrow { display: flex; gap: 8px; }
+.btnrow button { flex: 1; padding-inline: 8px; }
+.side { min-height: 0; overflow-y: auto; }
+.side button { font-size: 17px; }
+@media (max-aspect-ratio: 1/1) { .side .btnrow { flex: 1 1 45%; } }
+.bigtext { max-width: min(460px, 90vw); }
+.overlay { overflow-y: auto; }
+.bigcount { font-size: clamp(20px, 2.6vw, 30px); color: var(--muted); }
+
+/* Vorschau: Test-Scan */
+.peek { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20; border-radius: 16px; padding: 16px 24px; color: #0b1220;
+  font-size: 24px; font-weight: 700; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+
+/* Schüler */
+#student.assigned { background: var(--gc); color: #0b1220; }
+#student.assigned .muted { color: rgba(11,18,32,.75); }
+.mygroup { display: grid; gap: 18px; justify-items: center; text-align: center; }
+.mygroup .lead { font-size: 22px; font-weight: 700; margin: 0; }
+.mygroup .n { width: 140px; height: 140px; border-radius: 50%; background: #0b1220; color: #fff; display: grid; place-items: center; font-size: 84px; font-weight: 700; }
+.mygroup .t { font-size: clamp(36px, 11vw, 64px); font-weight: 700; line-height: 1.05; margin: 0; overflow-wrap: break-word; hyphens: auto; max-width: 100%; }
+.mygroup .small { font-size: 16px; margin: 0; line-height: 1.4; }
+.wait { font-size: 22px; font-weight: 700; line-height: 1.35; margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- Lehrkraft: Start -->
+<section id="start" class="pad" hidden>
+  <a class="zurueck" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
+  <div class="card">
+    <h1>Gruppen einteilen</h1>
+    <p class="muted" style="margin:0;font-size:18px;line-height:1.5">Die Klasse scannt den QR-Code, jedes Handy bekommt eine Gruppe. Die Gruppen werden gleich groß, und wer direkt nacheinander scannt, landet in verschiedenen Gruppen. Es werden keine Namen gespeichert. Nach 24 Stunden wird alles gelöscht.</p>
+    <div class="two">
+      <div>
+        <span class="lbl" id="gLbl">Anzahl Gruppen</span>
+        <div class="stepper" role="group" aria-labelledby="gLbl">
+          <button type="button" id="gMinus" aria-label="Eine Gruppe weniger">−</button>
+          <output id="gOut" aria-live="polite">4</output>
+          <button type="button" id="gPlus" aria-label="Eine Gruppe mehr">+</button>
+        </div>
+      </div>
+      <div>
+        <span class="lbl" id="sLbl">Plätze</span>
+        <div class="stepper" role="group" aria-labelledby="sLbl">
+          <button type="button" id="sMinus" aria-label="Ein Platz weniger">−</button>
+          <output id="sOut" aria-live="polite">28</output>
+          <button type="button" id="sPlus" aria-label="Ein Platz mehr">+</button>
+        </div>
+        <p class="muted hint">So viele, wie mitmachen. Fehlen welche, legst du später nach.</p>
+      </div>
+    </div>
+    <div>
+      <span class="lbl">Namen der Gruppen (freiwillig, z. B. Stationen)</span>
+      <div class="names" id="names"></div>
+    </div>
+    <button type="button" class="primary go" id="startBtn">Einteilung starten</button>
+    <button type="button" id="resumeBtn" hidden>Letzte Einteilung fortsetzen</button>
+    <p class="err" id="startErr"></p>
+    <p class="muted" style="margin:0;font-size:17px">Schülerin oder Schüler? <a href="?s" style="color:var(--accent);font-weight:700">Hier den Code eingeben</a></p>
+    <div class="note" id="demoNote" hidden>Vorschau-Modus: Hier läuft kein Server, deshalb können Handys noch nicht mitmachen. In der laufenden Einteilung kannst du mit „Test-Scan“ ausprobieren, wie die Gruppen vergeben werden.</div>
+  </div>
+</section>
+
+<!-- Lehrkraft: laufende Einteilung -->
+<section id="live" class="pad" hidden>
+  <div class="top">
+    <a class="zurueck im-fluss" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
+    <h2>Gruppen einteilen</h2>
+  </div>
+  <div class="body">
+    <div id="tiles"></div>
+    <aside class="side">
+      <div class="qrbox" id="qrSmall"></div>
+      <div class="codebox"><div class="muted" style="font-size:14px">Code</div><div class="code" id="codeSmall"></div><div class="url" id="urlSmall"></div></div>
+      <div class="count" id="count"></div>
+      <div class="full" id="fullMsg" hidden>Alle Plätze vergeben</div>
+      <div class="grow"></div>
+      <button type="button" id="demoScan" hidden>Test-Scan</button>
+      <div class="btnrow"><button type="button" id="bigQrBtn">QR groß</button><button type="button" id="hideQrBtn">QR aus</button></div>
+      <div class="btnrow"><button type="button" data-add="1">+1 Platz</button><button type="button" data-add="5">+5 Plätze</button></div>
+      <div class="btnrow"><button type="button" id="renameBtn">Namen ändern</button><button type="button" class="quiet" id="newBtn">Neu starten</button></div>
+    </aside>
+  </div>
+</section>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="bigq">
+    <div class="bigqr" id="qrBig"></div>
+    <div class="bigtext">
+      <p>Scannt den QR-Code mit der Kamera</p>
+      <div class="muted" style="font-size:20px">oder öffnet <span id="urlBig" style="color:var(--fg);word-break:break-all"></span> und gebt den Code ein:</div>
+      <div class="code" id="codeBig"></div>
+      <div class="bigcount" id="countBig"></div>
+      <button type="button" class="primary" id="closeOverlay" style="font-size:22px;margin-top:8px">Zu den Gruppen</button>
+    </div>
+  </div>
+</div>
+<div class="peek" id="peek" hidden></div>
+
+<!-- Schüler -->
+<section id="student" class="pad" hidden>
+  <div class="card">
+    <div id="stCode" hidden style="display:grid;gap:16px">
+      <h1>Gruppen</h1>
+      <label class="lbl" for="codeIn">Code von der Tafel</label>
+      <input type="text" id="codeIn" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000">
+      <button type="button" class="primary big" id="codeGo">Weiter</button>
+      <p class="err" id="codeErr"></p>
+    </div>
+    <div id="stWait" hidden style="display:grid;gap:16px">
+      <p class="muted" style="margin:0">Gruppen · Code <span class="stCodeLbl"></span></p>
+      <p class="wait" id="stWaitMsg">Einen Moment …</p>
+      <button type="button" class="big" id="stRetry">Nochmal versuchen</button>
+    </div>
+    <div id="stGroup" hidden class="mygroup">
+      <p class="lead">Deine Gruppe</p>
+      <div class="n" id="stNum"></div>
+      <p class="t" id="stName"></p>
+      <p class="muted small">Dieses Handy merkt sich die Gruppe. Nochmal scannen zeigt dieselbe.<br>Code <span class="stCodeLbl"></span></p>
+    </div>
+  </div>
+</section>
+
+<script src="../gemeinsam/qrcode.js"></script>
+<script src="../gemeinsam/runde.js"></script>
+<script>
+(function () {
+'use strict';
+const POLL_MS = 2000;          // Lehrkraft: Zahl der vergebenen Plätze aktualisieren
+const ST_POLL_MS = 5000;       // Schüler: geänderte Namen oder nachgelegte Plätze bemerken
+const MIN_G = 2, MAX_G = 10, MAX_SEATS = 200;
+const COLORS = ['#60a5fa', '#fbbf24', '#4ade80', '#f472b6', '#a78bfa', '#fb923c', '#2dd4bf', '#e5e7eb', '#f87171', '#a3e635'];
+const $ = (id) => document.getElementById(id);
+const { store, qrSvg, studentUrl, shortUrl } = Runde;
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+const defName = (i) => 'Gruppe ' + (i + 1);
+const platz = (n) => n === 1 ? '1 Platz' : n + ' Plätze';
+const vonPlaetzen = (n) => 'von ' + (n === 1 ? '1 Platz' : n + ' Plätzen');
+
+/* ---------------- Verbindung zum Server (oder Vorschau ohne Server), gemeinsamer Teil: ../gemeinsam/runde.js ---------------- */
+// Vorschau: gleiche Schnittstelle und gleiche Verteilung wie api.php, nur im Speicher dieses Geräts
+const demoRounds = {};
+function demoCall(action, d) {
+  const fail = (m) => { throw new Error(m); };
+  const r = demoRounds[d.r];
+  if (action !== 'create' && !r) fail('Diese Runde gibt es nicht (mehr).');
+  const cleanNames = (raw, n) => Array.from({ length: n }, (_, i) => String((raw || [])[i] || '').trim().slice(0, 30) || defName(i));
+  switch (action) {
+    case 'create': {
+      const code = String(1000 + Math.floor(Math.random() * 9000));
+      demoRounds[code] = { names: cleanNames(d.names, d.groups), seats: d.seats, taken: 0, queue: [], last: -1, devices: {}, open: true, version: 1 };
+      return { ok: true, code, key: 'demo' };
+    }
+    case 'get': {
+      if (d.v !== undefined && +d.v === r.version) return { ok: true, changed: false, version: r.version };
+      const v = { ok: true, changed: true, names: r.names.slice(), seats: r.seats, taken: r.taken, open: r.open, version: r.version };
+      if (d.device !== undefined) v.mine = d.device in r.devices ? r.devices[d.device] : -1;
+      return v;
+    }
+    case 'join': {
+      if (d.device in r.devices) return { ok: true, mine: r.devices[d.device] };
+      if (r.taken >= r.seats) fail('Alle Plätze sind vergeben. Sag deiner Lehrkraft Bescheid.');
+      if (!r.queue.length) {
+        const n = r.names.length, q = Array.from({ length: n }, (_, i) => i);
+        for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
+        if (q[0] === r.last) { const j = 1 + Math.floor(Math.random() * (n - 1)); [q[0], q[j]] = [q[j], q[0]]; }
+        r.queue = q;
+      }
+      const g = r.queue.shift(); r.last = g;
+      r.devices[d.device] = g; r.taken++; r.version++;
+      return { ok: true, mine: g };
+    }
+    case 'seats': if (r.seats + d.add > MAX_SEATS) fail('Mehr als 200 Plätze gehen nicht.'); r.seats += d.add; r.version++; return { ok: true };
+    case 'rename': r.names = cleanNames(d.names, r.names.length); r.version++; return { ok: true };
+    case 'delete': delete demoRounds[d.r]; return { ok: true };
+  }
+  fail('Unbekannte Aktion.');
+}
+const net = Runde.verbindung('api.php', demoCall);   // api.php liegt im selben Ordner wie diese Seite
+const call = net.call;
+let demo = false;
+
+function showOnly(id) {
+  ['start', 'live', 'student'].forEach((s) => { $(s).hidden = s !== id; });
+}
+
+/* ---------------- Lehrkraft: Start ---------------- */
+let round = null;       // { code, key }
+let data = null;        // letzter Stand vom Server
+let version = 0;
+let pollTimer = null;
+let editing = false;
+
+const prefs = Object.assign({ groups: 4, seats: 28, names: [] }, store.get('gr-prefs') || {});
+function savePrefs() { store.set('gr-prefs', prefs); }
+
+function buildNameInputs() {
+  const box = $('names');
+  const old = [...box.querySelectorAll('input')].map((i) => i.value);
+  old.forEach((v, i) => { prefs.names[i] = v; });
+  box.textContent = '';
+  for (let i = 0; i < prefs.groups; i++) {
+    const row = el('div', 'nm');
+    const b = el('span', 'num', String(i + 1)); b.style.background = COLORS[i];
+    const inp = el('input'); inp.type = 'text'; inp.maxLength = 30; inp.autocomplete = 'off';
+    inp.placeholder = defName(i); inp.value = prefs.names[i] || '';
+    inp.setAttribute('aria-label', 'Name für Gruppe ' + (i + 1));
+    inp.setAttribute('enterkeyhint', 'next');
+    inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const all = [...box.querySelectorAll('input')], k = all.indexOf(inp);
+      if (k < all.length - 1) all[k + 1].focus(); else inp.blur();
+    });
+    row.append(b, inp);
+    box.appendChild(row);
+  }
+}
+function updateSteppers() {
+  $('gOut').textContent = prefs.groups; $('sOut').textContent = prefs.seats;
+  $('gMinus').disabled = prefs.groups <= MIN_G; $('gPlus').disabled = prefs.groups >= MAX_G;
+  $('sMinus').disabled = prefs.seats <= 1; $('sPlus').disabled = prefs.seats >= MAX_SEATS;
+}
+// Gedrückt halten zählt schneller
+function holdButton(btn, fn) {
+  let t1 = null, t2 = null;
+  const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
+  btn.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); fn();
+    t1 = setTimeout(() => { t2 = setInterval(fn, 90); }, 450);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => btn.addEventListener(ev, stop));
+  btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } });
+}
+
+function initTeacher() {
+  showOnly('start');
+  $('demoNote').hidden = !demo;
+  prefs.groups = Math.min(MAX_G, Math.max(MIN_G, +prefs.groups || 4));
+  prefs.seats = Math.min(MAX_SEATS, Math.max(1, +prefs.seats || 28));
+  buildNameInputs(); updateSteppers();
+  const setG = (dg) => { const g = Math.min(MAX_G, Math.max(MIN_G, prefs.groups + dg)); if (g !== prefs.groups) { prefs.groups = g; buildNameInputs(); updateSteppers(); } };
+  const setS = (ds) => { prefs.seats = Math.min(MAX_SEATS, Math.max(1, prefs.seats + ds)); updateSteppers(); };
+  holdButton($('gMinus'), () => setG(-1)); holdButton($('gPlus'), () => setG(1));
+  holdButton($('sMinus'), () => setS(-1)); holdButton($('sPlus'), () => setS(1));
+
+  $('startBtn').addEventListener('click', async () => {
+    $('startErr').textContent = '';
+    const names = [...$('names').querySelectorAll('input')].map((i) => i.value.trim());
+    prefs.names = names; savePrefs();
+    $('startBtn').disabled = true;
+    try {
+      const old = store.get('gr-teacher');
+      if (old && !demo) call('delete', { r: old.code, key: old.key }).catch(() => {});
+      const res = await call('create', { groups: prefs.groups, seats: prefs.seats, names });
+      round = { code: res.code, key: res.key };
+      if (!demo) store.set('gr-teacher', round);
+      enterLive(true);
+    } catch (e) { $('startErr').textContent = e.message; }
+    $('startBtn').disabled = false;
+  });
+
+  const saved = !demo && store.get('gr-teacher');
+  if (saved) {
+    call('get', { r: saved.code }, 'GET').then(() => {
+      $('resumeBtn').hidden = false;
+      $('resumeBtn').textContent = 'Letzte Einteilung fortsetzen (Code ' + saved.code + ')';
+    }).catch(() => store.del('gr-teacher'));
+  }
+  $('resumeBtn').addEventListener('click', () => { round = saved; enterLive(false); });
+
+  $('bigQrBtn').addEventListener('click', () => { $('overlay').hidden = false; });
+  $('closeOverlay').addEventListener('click', () => { $('overlay').hidden = true; fitTiles(); });
+  $('hideQrBtn').addEventListener('click', () => {
+    const hide = !document.body.classList.contains('noqr');
+    document.body.classList.toggle('noqr', hide);
+    $('hideQrBtn').textContent = hide ? 'QR an' : 'QR aus';
+    fitTiles();
+  });
+  document.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', async () => {
+    try { await call('seats', { r: round.code, key: round.key, add: +b.dataset.add }); poll(true); } catch (e) { toastErr(e); }
+  }));
+  $('renameBtn').addEventListener('click', async () => {
+    if (!editing) { editing = true; $('renameBtn').textContent = 'Namen speichern'; buildTiles(); const f = $('tiles').querySelector('input'); if (f) f.focus(); return; }
+    const names = [...$('tiles').querySelectorAll('input')].map((i) => i.value.trim());
+    try {
+      await call('rename', { r: round.code, key: round.key, names });
+      editing = false; $('renameBtn').textContent = 'Namen ändern';
+      prefs.names = names; savePrefs();
+      await poll(true);
+      buildTiles();
+    } catch (e) { toastErr(e); }
+  });
+  $('demoScan').addEventListener('click', async () => {
+    try {
+      const res = await call('join', { r: round.code, device: 'test' + Math.random() });
+      peek(res.mine); poll(true);
+    } catch (e) { toastErr(e); }
+  });
+  $('newBtn').addEventListener('click', () => {
+    if (!confirm('Neue Einteilung starten? Die jetzige Runde wird gelöscht, die Handys verlieren ihre Gruppe.')) return;
+    if (!demo) store.del('gr-teacher');
+    if (round) call('delete', { r: round.code, key: round.key }).catch(() => {});
+    stopPoll();
+    round = null; data = null; version = 0; editing = false;
+    $('renameBtn').textContent = 'Namen ändern';
+    $('tiles').textContent = '';
+    $('resumeBtn').hidden = true;
+    buildNameInputs();
+    showOnly('start');
+  });
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fitTiles, 150); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopPoll();
+    else if (round && !$('live').hidden) { startPoll(); Runde.wachHalten(); }
+  });
+}
+
+let peekT = null;
+function peek(g) {
+  const p = $('peek');
+  p.textContent = 'Test-Handy → ' + (g + 1) + ' · ' + data.names[g];
+  p.style.background = COLORS[g]; p.hidden = false;
+  clearTimeout(peekT); peekT = setTimeout(() => { p.hidden = true; }, 1600);
+}
+function toastErr(e) { $('count').textContent = e.message; setTimeout(updateCount, 3000); }
+
+function enterLive(showBig) {
+  showOnly('live');
+  const svg = qrSvg(studentUrl(round.code));
+  $('qrSmall').innerHTML = svg; $('qrBig').innerHTML = svg;
+  $('codeSmall').textContent = round.code; $('codeBig').textContent = round.code;
+  $('urlSmall').textContent = shortUrl(); $('urlBig').textContent = shortUrl();
+  $('demoScan').hidden = !demo;
+  $('overlay').hidden = !showBig;
+  version = 0; data = null; editing = false; $('tiles').textContent = '';
+  startPoll(); Runde.wachHalten();
+}
+
+function startPoll() { stopPoll(); poll(true); pollTimer = setInterval(() => poll(false), POLL_MS); }
+function stopPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+let polling = false;
+async function poll(force) {
+  if (!round || (polling && !force)) return;
+  polling = true;
+  try {
+    const res = await call('get', force ? { r: round.code } : { r: round.code, v: version }, 'GET');
+    if (res.changed !== false) {
+      const namesChanged = !data || data.names.join('|') !== res.names.join('|');
+      data = res; version = res.version;
+      if (namesChanged && !editing) buildTiles();
+      updateCount();
+    }
+  } catch (e) {
+    if (e.status === 404) { $('count').textContent = 'Runde abgelaufen'; stopPoll(); store.del('gr-teacher'); }
+    else $('count').textContent = e.message;
+  }
+  polling = false;
+}
+function updateCount() {
+  if (!data) return;
+  const c = $('count'); c.textContent = data.taken + ' ' + vonPlaetzen(data.seats);
+  c.appendChild(el('small', '', 'haben eine Gruppe'));
+  const full = data.taken >= data.seats;
+  $('fullMsg').hidden = !full;
+  $('countBig').textContent = full ? 'Alle ' + platz(data.seats) + ' vergeben' : data.taken + ' ' + vonPlaetzen(data.seats) + ' vergeben';
+}
+
+/* ---------------- Gruppen-Kacheln ---------------- */
+function buildTiles() {
+  const box = $('tiles'); box.textContent = '';
+  data.names.forEach((t, i) => {
+    const tile = el('div', 'tile'); tile.style.background = COLORS[i];
+    tile.appendChild(el('span', 'n', String(i + 1)));
+    if (editing) {
+      const inp = el('input'); inp.type = 'text'; inp.maxLength = 30; inp.autocomplete = 'off';
+      inp.value = t; inp.placeholder = defName(i); inp.setAttribute('aria-label', 'Name für Gruppe ' + (i + 1));
+      tile.appendChild(inp);
+    } else tile.appendChild(el('span', 't', t));
+    box.appendChild(tile);
+  });
+  fitTiles();
+}
+// Spalten und Schriftgröße so wählen, dass die Kacheln den Platz gut ausnutzen (Beamer).
+function fitTiles() {
+  const box = $('tiles');
+  const n = box.children.length;
+  if (!n || !box.clientHeight) return;
+  const W = box.clientWidth, H = box.clientHeight, gap = parseFloat(getComputedStyle(box).columnGap) || 12;
+  let best = 1, bestS = 0;
+  for (let c = 1; c <= n; c++) {
+    const rws = Math.ceil(n / c);
+    const w = (W - (c - 1) * gap) / c, h = (H - (rws - 1) * gap) / rws;
+    const s = Math.min(w / 4, h * 0.7);      // Kachel soll etwa viermal so breit wie die Kreisgröße sein
+    if (s > bestS) { bestS = s; best = c; }
+  }
+  box.style.setProperty('--cols', best);
+  const start = Math.max(28, Math.min(120, bestS));
+  const overflow = () => [...box.children].some((t) => t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1);
+  // Erst versuchen, jeden Namen in eine Zeile zu bekommen (nicht zu stark verkleinern), sonst umbrechen lassen.
+  box.classList.add('oneline');
+  let ts = start;
+  for (let i = 0; i < 4; i++) { box.style.setProperty('--ts', Math.round(ts) + 'px'); if (!overflow()) return; ts *= 0.88; }
+  box.classList.remove('oneline');
+  ts = start;
+  for (let i = 0; i < 8; i++) { box.style.setProperty('--ts', Math.round(ts) + 'px'); if (!overflow()) return; ts *= 0.85; }
+}
+
+/* ---------------- Schüler ---------------- */
+function initStudent(code) {
+  showOnly('student');
+  const askCode = (msg) => {
+    $('student').classList.remove('assigned');
+    $('stCode').hidden = false; $('stWait').hidden = true; $('stGroup').hidden = true;
+    $('codeErr').textContent = msg || '';
+    if (code) $('codeIn').value = code;
+    setTimeout(() => $('codeIn').focus(), 50);
+  };
+  const go = () => {
+    const c = $('codeIn').value.replace(/\D/g, '');
+    if (c.length !== 4) { $('codeErr').textContent = 'Der Code hat 4 Ziffern.'; return; }
+    location.search = '?r=' + c;
+  };
+  $('codeGo').addEventListener('click', go);
+  $('codeIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+  if (!code) return askCode();
+
+  document.querySelectorAll('.stCodeLbl').forEach((s) => { s.textContent = code; });
+  const dev = demo ? 'demo' : Runde.deviceId('gr-dev');
+  let st = null, ver = 0, joining = false;
+
+  function waitMsg(msg) {
+    $('student').classList.remove('assigned');
+    $('stWaitMsg').textContent = msg;
+    $('stWait').hidden = false; $('stGroup').hidden = true; $('stCode').hidden = true;
+  }
+  function show() {
+    if (st.mine < 0) return waitMsg('Alle Plätze sind vergeben. Sag deiner Lehrkraft Bescheid. Sobald Plätze dazukommen, bekommst du hier deine Gruppe.');
+    const g = st.mine;
+    $('student').style.setProperty('--gc', COLORS[g]);
+    $('student').classList.add('assigned');
+    $('stNum').textContent = g + 1;
+    $('stName').textContent = st.names[g];
+    document.title = st.names[g];
+    $('stGroup').hidden = false; $('stWait').hidden = true; $('stCode').hidden = true;
+  }
+  async function join() {
+    if (joining) return;
+    joining = true;
+    try {
+      const res = await call('join', { r: code, device: dev });
+      if (st) st.mine = res.mine;
+      await load(true);
+    } catch (e) {
+      if (e.status === 404) { stopSt(); askCode(e.message); }
+      else waitMsg(e.message);
+    }
+    joining = false;
+  }
+  async function load(force) {
+    try {
+      const res = await call('get', force ? { r: code, device: dev } : { r: code, v: ver, device: dev }, 'GET');
+      if (res.changed === false) return;
+      st = res; ver = res.version;
+      if (st.mine < 0 && st.open && st.taken < st.seats && !joining) return join();
+      show();
+    } catch (e) {
+      if (e.status === 404 || !st) { stopSt(); askCode(e.message); }
+      else if (st.mine < 0) waitMsg(e.message);
+    }
+  }
+  $('stRetry').addEventListener('click', () => join());
+  let t = null;
+  const startSt = () => { stopSt(); t = setInterval(() => load(false), ST_POLL_MS); };
+  const stopSt = () => { if (t) clearInterval(t); t = null; };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopSt(); else { load(true); startSt(); } });
+  join(); startSt();
+}
+
+/* ---------------- Start ---------------- */
+(async function boot() {
+  const params = new URLSearchParams(location.search);
+  demo = !(await net.pruefen());
+  if (params.has('r') || params.has('s')) initStudent((params.get('r') || '').replace(/\D/g, '').slice(0, 4));
+  else initTeacher();
+})();
+})();
+</script>
+</body>
+</html>
