@@ -1,3 +1,4 @@
+<?php require __DIR__ . '/../gemeinsam/kontakt.php'; ?>
 <!doctype html>
 <html lang="de">
 <head>
@@ -23,9 +24,9 @@
 
   <h2>1. Verantwortlicher</h2>
   <p>
-    <mark>Vorname Nachname</mark><br>
-    <mark>Straße Hausnummer</mark>, <mark>PLZ Ort</mark><br>
-    E-Mail: <mark>adresse@beispiel.de</mark>
+    <?= k_text('name', 'Vorname Nachname') ?><br>
+    <?= k_text('anschrift', 'c/o Name, Straße Hausnummer, PLZ Ort') ?><br>
+    E-Mail: <?= k_email() ?>
   </p>
   <p>Ein Datenschutzbeauftragter ist für dieses private Angebot nicht bestellt und nicht vorgeschrieben.</p>
 
@@ -71,7 +72,7 @@
 
   <h2>7. Ihre Rechte</h2>
   <p>Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Widerspruch gegen die Verarbeitung (Art. 21). Wenden Sie sich dafür an die oben genannte E-Mail-Adresse.</p>
-  <p>Sie können sich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren, zum Beispiel bei <mark>der Landesbeauftragten für Datenschutz Ihres Bundeslandes</mark>.</p>
+  <p>Sie können sich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren, zum Beispiel bei <?= k_text('aufsicht', 'der oder dem Landesbeauftragten für Datenschutz') ?>.</p>
 
   <p class="stand">Stand: November 2026 · <a href="../impressum/">Impressum</a></p>
 </main>

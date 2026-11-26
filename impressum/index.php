@@ -1,3 +1,4 @@
+<?php require __DIR__ . '/../gemeinsam/kontakt.php'; ?>
 <!doctype html>
 <html lang="de">
 <head>
@@ -16,13 +17,12 @@
 
   <h2>Angaben gemäß § 5 DDG</h2>
   <p>
-    <mark>Vorname Nachname</mark><br>
-    <mark>Straße Hausnummer</mark><br>
-    <mark>PLZ Ort</mark>
+    <?= k_text('name', 'Vorname Nachname') ?><br>
+    <?= k_text('anschrift', 'c/o Name, Straße Hausnummer, PLZ Ort') ?>
   </p>
 
   <h2>Kontakt</h2>
-  <p>E-Mail: <mark>adresse@beispiel.de</mark></p>
+  <p>E-Mail: <?= k_email() ?></p>
 
   <h2>Über dieses Angebot</h2>
   <p>Diese Seite ist ein privates, nicht kommerzielles Angebot. Die Werkzeuge sind kostenlos, ohne Anmeldung und ohne Werbung nutzbar.</p>
