@@ -9,6 +9,7 @@ Vorschau ohne Server-Funktionen: https://erltools.github.io/unterrichtstools/
 | --- | --- |
 | Lautstärke-Ampel | `ampel/` |
 | Wortwolke | `wortwolke/` (braucht PHP, speichert nur Wörter, löscht nach 24 h) |
+| Abstimmung | `abstimmung/` (braucht PHP, speichert nur Stimmen je Antwort, löscht nach 24 h) |
 | Timer | `timer/` |
 | Glücksrad | `gluecksrad/` (Listen nur lokal im Browser) |
 | Mathefußball | `mathefussball/` |
@@ -20,4 +21,6 @@ Zurück-Link: Jedes Tool bindet `gemeinsam/zurueck.css` ein und setzt `<a class=
 
 Schrift: Atkinson Hyperlegible liegt lokal in `schrift/` (SIL Open Font License), damit keine Verbindung zu Google Fonts entsteht. Neue Tools binden `schrift/schrift.css` ein.
 
-Hochladen: netcup holt `main` über die Git-Verbindung in Plesk automatisch nach `/klassenkit.de/httpdocs` (Webhook in GitHub). Rundendaten der Wortwolke (`wortwolke/daten/*.json`) liegen nicht im Repo und bleiben dabei erhalten.
+Runden-Tools (Wortwolke, Abstimmung): Gemeinsamer Server-Teil in `gemeinsam/runden.php` (Runden als JSON-Dateien im `daten/`-Ordner des Tools, 4-stelliger Code, Löschung nach 24 h), gemeinsamer Browser-Teil in `gemeinsam/runde.js` und `gemeinsam/qrcode.js`, gemeinsames Aussehen in `gemeinsam/runde.css`. Jedes Tool hat eine eigene `api.php` mit seinen Aktionen und einen `daten/`-Ordner mit `.htaccess` (kein direkter Zugriff).
+
+Hochladen: netcup holt `main` über die Git-Verbindung in Plesk automatisch nach `/klassenkit.de/httpdocs` (Webhook in GitHub). Rundendaten (`*/daten/*.json`) liegen nicht im Repo und bleiben dabei erhalten.
