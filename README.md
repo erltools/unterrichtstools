@@ -15,6 +15,8 @@ Vorschau ohne Server-Funktionen: https://erltools.github.io/unterrichtstools/
 | Mathefußball | `mathefussball/` |
 | Sitzplan-Würfel | `sitzplan/` (Klassen und Pläne nur lokal im Browser) |
 
+Impressum und Datenschutzerklärung liegen in `impressum/` und `datenschutz/` (Stil: `gemeinsam/textseite.css`), verlinkt unten auf der Startseite. Name, Anschrift und E-Mail stehen absichtlich nicht im Repo: `gemeinsam/kontakt.php` liest sie aus `kontakt.php` eine Ebene über `httpdocs` auf dem Server. Fehlt die Datei, zeigen die Seiten gelbe Platzhalter. Auf GitHub Pages laufen diese beiden PHP-Seiten nicht. Neue Tools, die Daten auf dem Server speichern oder neue Gerätefunktionen nutzen, müssen in der Datenschutzerklärung ergänzt werden.
+
 Jedes Tool ist eine einzelne HTML-Datei ohne Build-Schritt. Neue Tools bekommen einen eigenen Ordner und eine Kachel auf der Startseite (`index.html`).
 
 Zurück-Link: Jedes Tool bindet `gemeinsam/zurueck.css` ein und setzt `<a class="zurueck" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>` (blass oben links). In einer Kopfzeile stattdessen `class="zurueck im-fluss"`. Während ein Tool läuft, darf das Tool den Link ausblenden (siehe Timer).
