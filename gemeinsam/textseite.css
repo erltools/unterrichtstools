@@ -1,0 +1,15 @@
+/* Schlichte Textseiten (Impressum, Datenschutz). Passt zur Startseite. */
+:root { --bg:#0f1216; --line:#2c333d; --fg:#f3f5f7; --muted:#9aa4b1; color-scheme:dark; }
+body { margin:0; background:var(--bg); color:var(--fg); font-family:"Atkinson Hyperlegible",system-ui,-apple-system,sans-serif;
+  padding-left:max(20px,env(safe-area-inset-left,0px)); padding-right:max(20px,env(safe-area-inset-right,0px));
+  padding-top:calc(72px + env(safe-area-inset-top,0px)); padding-bottom:48px; }
+main { max-width:720px; margin:0 auto; }
+h1 { margin:0 0 24px; font-size:clamp(30px,5vw,44px); }
+h2 { margin:36px 0 8px; font-size:22px; }
+h3 { margin:24px 0 6px; font-size:19px; }
+p, li { color:#d4d9df; font-size:18px; line-height:1.55; margin:0 0 12px; }
+ul { padding-left:22px; margin:0 0 12px; }
+a { color:var(--fg); }
+.stand { color:var(--muted); font-size:15px; border-top:1px solid var(--line); padding-top:16px; margin-top:40px; }
+/* Platzhalter, die noch ausgefüllt werden müssen */
+mark { background:#facc15; color:#111; padding:0 4px; border-radius:4px; }
