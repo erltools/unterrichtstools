@@ -9,3 +9,5 @@ Website: https://erltools.github.io/unterrichtstools/
 | Lautstärke-Ampel | `ampel/` |
 
 Jedes Tool ist eine einzelne HTML-Datei ohne Build-Schritt. Neue Tools bekommen einen eigenen Ordner und eine Kachel auf der Startseite (`index.html`).
+
+Schrift: Atkinson Hyperlegible liegt lokal in `schrift/` (SIL Open Font License), damit keine Verbindung zu Google Fonts entsteht. Neue Tools binden `schrift/schrift.css` ein.
