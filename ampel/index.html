@@ -65,6 +65,11 @@ body {
 .word[data-s="yellow"] { color: var(--yellow); }
 .word[data-s="red"] { color: var(--red); }
 .word[data-s="idle"] { color: var(--muted); font-size: clamp(28px, 5vw, 64px); }
+.count { display: flex; gap: 28px; flex-wrap: wrap; font-size: clamp(22px, 2.6vw, 34px); font-weight: 700; }
+.count > span { display: inline-flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; }
+.count i { width: .8em; height: .8em; border-radius: 50%; display: block; }
+.count .cy i { background: var(--yellow); }
+.count .cr i { background: var(--red); }
 .hint { color: var(--muted); font-size: clamp(16px, 1.8vw, 22px); line-height: 1.4; margin: 0; max-width: 32ch; }
 .hint.err { color: var(--yellow); }
 
@@ -109,6 +114,7 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
   .light { height: auto; width: min(46vw, 24vh); max-width: none; flex-shrink: 0; }
   .side { max-width: 100%; width: 100%; align-items: center; text-align: center; }
   .side .meter { width: 100%; max-width: 520px; }
+  .count { justify-content: center; }
   .word { font-size: clamp(40px, 12vw, 110px); }
 }
 @media (prefers-reduced-motion: reduce) { .lamp::after { transition: none; } }
@@ -128,6 +134,10 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
         <div class="fill" id="fill"></div>
         <div class="mark y" id="markY"></div>
         <div class="mark r" id="markR"></div>
+      </div>
+      <div class="count" aria-live="polite">
+        <span class="cy"><i></i><span>Gelb: <b id="cntY">0</b>×</span></span>
+        <span class="cr"><i></i><span>Rot: <b id="cntR">0</b>×</span></span>
       </div>
       <p class="hint" id="hint">Tippe auf „Start“, damit die Ampel über das Mikrofon mithört. Oder tippe direkt auf eine Farbe.</p>
     </div>
@@ -157,6 +167,7 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
   </div>
   <div class="bar">
     <button class="btn" id="resetBtn">Standardwerte</button>
+    <button class="btn" id="cntReset">Zähler auf 0</button>
     <button class="btn primary" id="closeBtn">Fertig</button>
   </div>
 </section>
@@ -179,8 +190,16 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
   let mode = "idle";         // idle | mic | manual
   let since = 0;             // Zeitpunkt der letzten Farbänderung
 
+  let cntY = 0, cntR = 0;
+  function renderCount() { $("cntY").textContent = cntY; $("cntR").textContent = cntR; }
+  $("cntReset").addEventListener("click", () => { cntY = 0; cntR = 0; renderCount(); });
+
   function show(s) {
     if (s === shown) return;
+    // Zählen: Gelb nur beim Lauterwerden (nicht beim Abklingen von Rot), Rot bei jedem neuen Erreichen
+    if (s === "yellow" && (shown === "green" || shown === null)) cntY++;
+    if (s === "red") cntR++;
+    if (s === "yellow" || s === "red") renderCount();
     shown = s;
     lamps.forEach((l) => l.classList.toggle("on", l.dataset.s === s));
     word.dataset.s = s || "idle";
