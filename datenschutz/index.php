@@ -19,7 +19,7 @@
     <li>Keine Anmeldung, keine Cookies, kein Tracking, keine Werbung.</li>
     <li>Keine Verbindungen zu fremden Diensten. Auch die Schrift liegt auf diesem Server.</li>
     <li>Namenslisten, Sitzpläne und Einstellungen bleiben nur auf Ihrem Gerät.</li>
-    <li>Nur Wortwolke und Abstimmung speichern Eingaben auf dem Server, ohne Namen, und löschen sie nach 24 Stunden.</li>
+    <li>Nur Wortwolke, Abstimmung und Gruppen einteilen speichern Daten auf dem Server, ohne Namen, und löschen sie nach 24 Stunden.</li>
   </ul>
 
   <h2>1. Verantwortlicher</h2>
@@ -49,23 +49,25 @@
     <li>Glücksrad: eingetragene Namen oder Aufgaben</li>
     <li>Sitzplan-Würfel: Klassen, Namen und Sitzpläne</li>
     <li>Mathefußball: Spielstand und Einstellungen</li>
-    <li>Wortwolke und Abstimmung: laufende Runde und eine zufällige Geräte-Kennung (siehe Abschnitt 5)</li>
+    <li>Wortwolke, Abstimmung und Gruppen einteilen: laufende Runde und eine zufällige Geräte-Kennung (siehe Abschnitt 5)</li>
+    <li>Gruppen einteilen: zuletzt gewählte Anzahl, Plätze und Gruppennamen</li>
   </ul>
   <p>Diese Daten werden nicht an den Server übertragen und sind nur auf diesem Gerät in diesem Browser sichtbar. Die Speicherung ist für die von Ihnen gewünschte Funktion unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG). Sie können sie jederzeit löschen, indem Sie die Website-Daten im Browser entfernen (auf dem iPad: Einstellungen › Apps › Safari › Erweitert › Website-Daten).</p>
 
   <h2>4. Mikrofon (Lautstärke-Ampel)</h2>
   <p>Die Lautstärke-Ampel nutzt das Mikrofon nur, wenn Sie es im Browser erlauben. Der Ton wird ausschließlich im Browser ausgewertet, um die Lautstärke zu messen. Es wird nichts aufgenommen, gespeichert oder übertragen. Die Erlaubnis können Sie in den Browser-Einstellungen jederzeit zurücknehmen.</p>
 
-  <h2>5. Wortwolke und Abstimmung</h2>
-  <p>Damit die Klasse von eigenen Geräten mitmachen kann, werden bei diesen beiden Werkzeugen Daten auf dem Server gespeichert:</p>
+  <h2>5. Wortwolke, Abstimmung und Gruppen einteilen</h2>
+  <p>Damit die Klasse von eigenen Geräten mitmachen kann, werden bei diesen Werkzeugen Daten auf dem Server gespeichert:</p>
   <ul>
     <li>die Frage und die Antwortmöglichkeiten der Lehrkraft</li>
     <li>die abgeschickten Wörter bzw. Stimmen</li>
+    <li>bei Gruppen einteilen: Anzahl und Namen der Gruppen, Zahl der Plätze und der bereits vergebenen Plätze sowie die Nummer der Gruppe, die ein Gerät bekommen hat</li>
     <li>ein vierstelliger Runden-Code</li>
-    <li>pro Gerät ein Prüfwert, der aus einer zufälligen Kennung gebildet wird. Er dient nur dazu, die Zahl der Eingaben pro Gerät zu begrenzen, und lässt keinen Rückschluss auf Person oder Gerät zu.</li>
+    <li>pro Gerät ein Prüfwert, der aus einer zufälligen Kennung gebildet wird. Er dient nur dazu, die Zahl der Eingaben pro Gerät zu begrenzen bzw. einem Gerät bei erneutem Aufruf dieselbe Gruppe zu zeigen, und lässt keinen Rückschluss auf Person oder Gerät zu.</li>
   </ul>
   <p>Namen und IP-Adressen werden in den Runden nicht gespeichert. Jede Runde wird nach 24 Stunden automatisch gelöscht, auf Wunsch der Lehrkraft auch sofort. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, das berechtigte Interesse ist die Bereitstellung der gewünschten Funktion.</p>
-  <p>Bitte geben Sie in Wortwolke und Abstimmung keine Namen oder andere persönliche Angaben ein.</p>
+  <p>Bitte geben Sie in diesen Werkzeugen keine Namen oder andere persönliche Angaben ein, auch nicht als Gruppennamen.</p>
 
   <h2>6. Aufruf über GitHub Pages</h2>
   <p>Eine Vorschau der Seite ist zusätzlich unter erltools.github.io erreichbar. Wer diese Adresse aufruft, nutzt die Server von GitHub Inc. (USA). Dabei gilt die Datenschutzerklärung von GitHub, und es kann eine Übermittlung in die USA stattfinden. Für den Unterricht nutzen Sie bitte die Hauptadresse klassenkit.de.</p>
