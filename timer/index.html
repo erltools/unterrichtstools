@@ -104,8 +104,6 @@ body.running .setup, body.done .setup, body.running .zurueck, body.done .zurueck
   </div>
   <div class="bar setup adjust" role="group" aria-label="Zeit genau einstellen">
     <button class="btn" data-d="-60" aria-label="Eine Minute weniger">− 1 min</button>
-    <button class="btn" data-d="-10" aria-label="Zehn Sekunden weniger">− 10 s</button>
-    <button class="btn" data-d="10" aria-label="Zehn Sekunden mehr">+ 10 s</button>
     <button class="btn" data-d="60" aria-label="Eine Minute mehr">+ 1 min</button>
   </div>
   <nav class="bar">
@@ -120,10 +118,11 @@ body.running .setup, body.done .setup, body.running .zurueck, body.done .zurueck
 <script>
 (() => {
   const KEY = "timer-v1";
-  const MAX = 99 * 60 + 59;
+  const MAX = 99 * 60;
   const LAST = 60;                // letzte Minute: gelb
   let cfg = { secs: 300, sound: true };
   try { Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  cfg.secs = Math.round(cfg.secs / 60) * 60;  // nur volle Minuten
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) {} };
 
   const $ = (id) => document.getElementById(id);
@@ -178,7 +177,7 @@ body.running .setup, body.done .setup, body.running .zurueck, body.done .zurueck
   }
 
   function setSecs(s) {
-    s = Math.max(5, Math.min(MAX, s));
+    s = Math.max(60, Math.min(MAX, s));
     cfg.secs = s; save();
     total = s; left = s * 1000; state = "idle";
     presetBtns.forEach((b) => b.classList.toggle("sel", +b.dataset.m * 60 === s));
@@ -246,7 +245,6 @@ body.running .setup, body.done .setup, body.running .zurueck, body.done .zurueck
   document.querySelectorAll(".adjust button").forEach((b) => b.addEventListener("click", () => {
     const d = +b.dataset.d;
     let s = cfg.secs + d;
-    if (Math.abs(d) === 10) s = Math.round(s / 10) * 10;
     setSecs(s);
   }));
   // Tastatur am Laptop: Leertaste = Start/Pause
