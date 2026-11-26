@@ -1,0 +1,19 @@
+/* Gemeinsamer Zurück-Link zur Übersicht. Einbinden in jedem Tool:
+   <link rel="stylesheet" href="../gemeinsam/zurueck.css">
+   <a class="zurueck" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
+   Standard: klein und blass oben links in der Ecke. Mit class="zurueck im-fluss" sitzt er
+   stattdessen im normalen Layout (z. B. in einer Kopfzeile). */
+.zurueck {
+  position: fixed; z-index: 30;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  left: max(8px, env(safe-area-inset-left, 0px));
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px;
+  font-family: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  font-size: 16px; font-weight: 700; line-height: 1; white-space: nowrap;
+  color: #9aa4b1; text-decoration: none; border-radius: 10px;
+  opacity: .6; -webkit-tap-highlight-color: transparent;
+}
+.zurueck:hover, .zurueck:focus-visible { opacity: 1; color: #f3f5f7; background: rgba(255,255,255,.06); }
+.zurueck:focus-visible { outline: 3px solid #f3f5f7; outline-offset: 2px; }
+.zurueck.im-fluss { position: static; flex-shrink: 0; margin-left: -12px; }
+@media print { .zurueck { display: none; } }

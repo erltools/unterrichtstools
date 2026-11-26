@@ -3,6 +3,7 @@
 <title>Timer</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="../schrift/schrift.css">
+<link rel="stylesheet" href="../gemeinsam/zurueck.css">
 <style>
 /* Eine Bildschirmseite: große Restzeit, darunter Balken und Bedienung. Dunkel für Beamer, keine Dauer-Animationen. */
 :root {
@@ -74,7 +75,7 @@ body.done button.btn { background: #fff; color: #7f1d1d; border-color: #fff; }
 .adjust { align-items: center; }
 .adjust .lbl { color: var(--muted); font-size: 18px; padding: 0 4px; }
 /* Während der Timer läuft: nur das Nötigste zeigen */
-body.running .setup, body.done .setup { display: none; }
+body.running .setup, body.done .setup, body.running .zurueck, body.done .zurueck { display: none; }
 
 @media (max-height: 560px) and (orientation: landscape) {
   .app { gap: 8px; }
@@ -84,6 +85,7 @@ body.running .setup, body.done .setup { display: none; }
 @media (prefers-reduced-motion: reduce) { .track .fill { transition: none; } }
 </style>
 
+<a class="zurueck" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
 <div class="app">
   <main class="stage">
     <h1 class="time" id="time" aria-live="off"></h1>
