@@ -10,6 +10,7 @@ Vorschau ohne Server-Funktionen: https://erltools.github.io/unterrichtstools/
 | Lautstärke-Ampel | `ampel/` |
 | Wortwolke | `wortwolke/` (braucht PHP, speichert nur Wörter, löscht nach 24 h) |
 | Timer | `timer/` |
+| Glücksrad | `gluecksrad/` (Listen nur lokal im Browser) |
 
 Jedes Tool ist eine einzelne HTML-Datei ohne Build-Schritt. Neue Tools bekommen einen eigenen Ordner und eine Kachel auf der Startseite (`index.html`).
 
