@@ -1,16 +1,19 @@
 <?php
 // Lädt Name, Anschrift und E-Mail für Impressum und Datenschutz.
-// Die echten Angaben stehen NICHT im Repo, sondern in einer Datei auf dem Server
-// außerhalb des Web-Ordners: eine Ebene über httpdocs, also /klassenkit.de/kontakt.php.
-// Fehlt sie, erscheinen gelb markierte Platzhalter.
+// Die echten Angaben stehen NICHT im Repo, sondern in kontakt.php auf dem Server.
+// Gesucht wird eine Ebene über httpdocs, zwei Ebenen darüber und zuletzt direkt in httpdocs
+// (dort gibt die Datei beim Aufruf nichts aus). Fehlt sie, erscheinen gelb markierte Platzhalter.
 declare(strict_types=1);
 
 function kontakt(): array {
   static $k = null;
   if ($k !== null) return $k;
   $leer = ['name' => '', 'anschrift' => '', 'email' => '', 'aufsicht' => ''];
-  $datei = dirname(__DIR__, 2) . '/kontakt.php';
-  $daten = is_file($datei) ? (include $datei) : [];
+  $daten = [];
+  foreach ([dirname(__DIR__, 2), dirname(__DIR__, 3), dirname(__DIR__)] as $ordner) {
+    $datei = $ordner . '/kontakt.php';
+    if (@is_file($datei) && @is_readable($datei)) { $daten = include $datei; break; }
+  }
   $k = array_merge($leer, is_array($daten) ? $daten : []);
   return $k;
 }
