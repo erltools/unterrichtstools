@@ -23,10 +23,10 @@ jobs:
         if: steps.check.outputs.ready == 'yes'
         env:
           HOST: ${{ secrets.SFTP_HOST }}
-          USER: ${{ secrets.SFTP_USER }}
+          LOGIN: ${{ secrets.SFTP_USER }}
           LFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           DIR: ${{ secrets.SFTP_DIR }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
           # Rundendaten der Wortwolke (daten/*.json) werden nie überschrieben oder gelöscht.
-          lftp --env-password -u "$USER" "sftp://$HOST" -e "set sftp:auto-confirm yes; mirror -R --verbose --exclude-glob .git* --exclude-glob .github/ --exclude-glob '*.json' ./ '${DIR:-.}'; bye"
+          lftp --env-password -u "$LOGIN" "sftp://$HOST" -e "set sftp:auto-confirm yes; mirror -R --verbose --exclude-glob .git* --exclude-glob .github/ --exclude-glob '*.json' ./ '${DIR:-.}'; bye"
