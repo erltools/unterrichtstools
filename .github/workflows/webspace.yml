@@ -28,5 +28,13 @@ jobs:
           DIR: ${{ secrets.SFTP_DIR }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+          # Zeigt nur, welche Anmeldearten der Server anbietet (ohne Zugangsdaten zu senden).
+          ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=none -o ConnectTimeout=20 "$LOGIN@$HOST" true 2>&1 | grep -i "Authentications that can continue" || true
           # Rundendaten der Wortwolke (daten/*.json) werden nie überschrieben oder gelöscht.
-          lftp --env-password -u "$LOGIN" "sftp://$HOST" -e "set sftp:auto-confirm yes; mirror -R --verbose --exclude-glob .git* --exclude-glob .github/ --exclude-glob '*.json' ./ '${DIR:-.}'; bye"
+          EXCL="--exclude-glob .git* --exclude-glob .github/ --exclude-glob '*.json'"
+          if lftp --env-password -u "$LOGIN" "sftp://$HOST" -e "set sftp:auto-confirm yes; mirror -R --verbose $EXCL ./ '${DIR:-.}'; bye"; then
+            echo "Hochgeladen per SFTP"
+          else
+            echo "SFTP ging nicht, versuche verschlüsseltes FTP (FTPES)"
+            lftp --env-password -u "$LOGIN" "ftp://$HOST" -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; mirror -R --verbose $EXCL ./ '${DIR:-.}'; bye"
+          fi
