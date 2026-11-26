@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><style>body{margin:0}[hidden]{display:none!important}</style></head><body>
+<title>Lautstärke-Ampel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: eine Bildschirmseite, Ampel links groß, Status rechts; hochkant gestapelt. Bewusst dunkel für Beamer. */
+:root {
+  --bg: #0f1216;
+  --panel: #1a1f26;
+  --line: #2c333d;
+  --fg: #f3f5f7;
+  --muted: #9aa4b1;
+  --green: #22c55e;
+  --yellow: #facc15;
+  --red: #ef4444;
+  --off: #252b33;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font);
+  font-size: 16px; overflow: hidden; -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none; touch-action: manipulation;
+}
+.app {
+  height: 100%; display: flex; flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px; box-sizing: border-box; gap: 12px;
+}
+.stage {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  gap: clamp(20px, 5vw, 72px);
+}
+.light {
+  height: 100%; max-height: 100%; aspect-ratio: 0.42; max-width: 42vw;
+  background: #07090b; border: 3px solid var(--line); border-radius: 999px;
+  display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
+  padding: 4%; box-sizing: border-box;
+}
+.lamp {
+  width: 84%; aspect-ratio: 1; border-radius: 50%; border: 0; padding: 0;
+  background: var(--off); cursor: pointer; position: relative;
+}
+.lamp::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, rgba(255,255,255,.55), transparent 42%), var(--c);
+  opacity: 0; transition: opacity .18s linear;
+}
+.lamp.on::after { opacity: 1; }
+.lamp[data-s="red"] { --c: var(--red); }
+.lamp[data-s="yellow"] { --c: var(--yellow); }
+.lamp[data-s="green"] { --c: var(--green); }
+.lamp:focus-visible { outline: 4px solid var(--fg); outline-offset: 4px; }
+
+.side { display: flex; flex-direction: column; gap: 24px; min-width: 0; max-width: 46vw; }
+.word {
+  font-size: clamp(40px, 9vw, 140px); font-weight: 700; line-height: 1; margin: 0;
+  text-wrap: balance;
+}
+.word[data-s="green"] { color: var(--green); }
+.word[data-s="yellow"] { color: var(--yellow); }
+.word[data-s="red"] { color: var(--red); }
+.word[data-s="idle"] { color: var(--muted); font-size: clamp(28px, 5vw, 64px); }
+.hint { color: var(--muted); font-size: clamp(16px, 1.8vw, 22px); line-height: 1.4; margin: 0; max-width: 32ch; }
+.hint.err { color: var(--yellow); }
+
+.meter { position: relative; height: 22px; border-radius: 11px; background: var(--off); overflow: hidden; }
+.meter .fill {
+  position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0);
+  background: var(--fg); opacity: .85; will-change: transform;
+}
+.meter .mark { position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px; }
+.meter .mark.y { background: var(--yellow); }
+.meter .mark.r { background: var(--red); }
+
+.bar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+button.btn {
+  font: inherit; font-size: 18px; font-weight: 700; color: var(--fg);
+  background: var(--panel); border: 2px solid var(--line); border-radius: 14px;
+  min-height: 52px; padding: 0 20px; cursor: pointer;
+}
+button.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button.btn:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+button.btn[aria-pressed="true"] { border-color: var(--fg); }
+
+.sheet {
+  position: fixed; inset: auto 0 0 0; background: var(--panel); border-top: 2px solid var(--line);
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  padding-top: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  display: grid; gap: 18px; max-height: 80%; overflow-y: auto;
+}
+.sheet h2 { margin: 0; font-size: 22px; }
+.row { display: grid; gap: 8px; }
+.row label { display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; }
+.row label span { font-variant-numeric: tabular-nums; color: var(--muted); }
+.row p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.4; }
+input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
+#yellowIn { accent-color: var(--yellow); }
+#redIn { accent-color: var(--red); }
+.sheet .bar { justify-content: flex-start; }
+
+@media (orientation: portrait) {
+  .stage { flex-direction: column; gap: 20px; }
+  .light { height: auto; width: min(46vw, 24vh); max-width: none; flex-shrink: 0; }
+  .side { max-width: 100%; width: 100%; align-items: center; text-align: center; }
+  .side .meter { width: 100%; max-width: 520px; }
+  .word { font-size: clamp(40px, 12vw, 110px); }
+}
+@media (prefers-reduced-motion: reduce) { .lamp::after { transition: none; } }
+</style>
+
+<div class="app">
+  <main class="stage">
+    <div class="light" role="group" aria-label="Ampel. Tippen stellt die Farbe von Hand ein.">
+      <button class="lamp" data-s="red" aria-label="Rot"></button>
+      <button class="lamp" data-s="yellow" aria-label="Gelb"></button>
+      <button class="lamp" data-s="green" aria-label="Grün"></button>
+    </div>
+    <div class="side">
+      <h1 class="word" id="word" data-s="idle">Bereit</h1>
+      <div class="meter" id="meter" aria-hidden="true">
+        <div class="fill" id="fill"></div>
+        <div class="mark y" id="markY"></div>
+        <div class="mark r" id="markR"></div>
+      </div>
+      <p class="hint" id="hint">Tippe auf „Start“, damit die Ampel über das Mikrofon mithört. Oder tippe direkt auf eine Farbe.</p>
+    </div>
+  </main>
+  <nav class="bar">
+    <button class="btn primary" id="startBtn">Start</button>
+    <button class="btn" id="setBtn" aria-expanded="false" aria-controls="sheet">Einstellungen</button>
+    <button class="btn" id="fsBtn">Vollbild</button>
+  </nav>
+</div>
+
+<section class="sheet" id="sheet" hidden>
+  <h2>Einstellungen</h2>
+  <div class="row">
+    <label for="yellowIn">Gelb ab <span id="yellowVal"></span></label>
+    <input type="range" id="yellowIn" min="5" max="95" step="1">
+  </div>
+  <div class="row">
+    <label for="redIn">Rot ab <span id="redVal"></span></label>
+    <input type="range" id="redIn" min="10" max="100" step="1">
+    <p>Tipp: Lass die Klasse kurz normal arbeiten und schau, wo der weiße Balken liegt. Stell Gelb knapp darüber.</p>
+  </div>
+  <div class="row">
+    <label for="holdIn">Farbe halten <span id="holdVal"></span></label>
+    <input type="range" id="holdIn" min="1" max="10" step="1">
+    <p>So lange bleibt Gelb oder Rot mindestens stehen, damit die Ampel nicht flackert.</p>
+  </div>
+  <div class="bar">
+    <button class="btn" id="resetBtn">Standardwerte</button>
+    <button class="btn primary" id="closeBtn">Fertig</button>
+  </div>
+</section>
+
+<script>
+(() => {
+  const DEFAULTS = { yellow: 45, red: 65, hold: 3 };
+  const LABELS = { green: "Gut so!", yellow: "Etwas leiser", red: "Zu laut!" };
+  const KEY = "laerm-ampel-v1";
+  let cfg = { ...DEFAULTS };
+  try { Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) {} };
+
+  const $ = (id) => document.getElementById(id);
+  const lamps = [...document.querySelectorAll(".lamp")];
+  const word = $("word"), hint = $("hint"), fill = $("fill");
+  const startBtn = $("startBtn"), sheet = $("sheet"), setBtn = $("setBtn");
+
+  let shown = null;          // aktuell angezeigte Farbe
+  let mode = "idle";         // idle | mic | manual
+  let since = 0;             // Zeitpunkt der letzten Farbänderung
+
+  function show(s) {
+    if (s === shown) return;
+    shown = s;
+    lamps.forEach((l) => l.classList.toggle("on", l.dataset.s === s));
+    word.dataset.s = s || "idle";
+    word.textContent = s ? LABELS[s] : "Bereit";
+  }
+
+  function renderCfg() {
+    $("yellowIn").value = cfg.yellow; $("redIn").value = cfg.red; $("holdIn").value = cfg.hold;
+    $("yellowVal").textContent = cfg.yellow; $("redVal").textContent = cfg.red;
+    $("holdVal").textContent = cfg.hold + " s";
+    $("markY").style.left = cfg.yellow + "%"; $("markR").style.left = cfg.red + "%";
+  }
+  $("yellowIn").addEventListener("input", (e) => {
+    cfg.yellow = +e.target.value;
+    if (cfg.red <= cfg.yellow) cfg.red = Math.min(100, cfg.yellow + 1);
+    renderCfg(); save();
+  });
+  $("redIn").addEventListener("input", (e) => {
+    cfg.red = +e.target.value;
+    if (cfg.yellow >= cfg.red) cfg.yellow = Math.max(5, cfg.red - 1);
+    renderCfg(); save();
+  });
+  $("holdIn").addEventListener("input", (e) => { cfg.hold = +e.target.value; renderCfg(); save(); });
+  $("resetBtn").addEventListener("click", () => { cfg = { ...DEFAULTS }; renderCfg(); save(); });
+
+  function toggleSheet(open) {
+    sheet.hidden = !open; setBtn.setAttribute("aria-expanded", String(open));
+  }
+  setBtn.addEventListener("click", () => toggleSheet(sheet.hidden));
+  $("closeBtn").addEventListener("click", () => toggleSheet(false));
+
+  // Ampel von Hand
+  lamps.forEach((l) => l.addEventListener("click", () => {
+    if (mode === "mic") stopMic();
+    mode = "manual";
+    show(l.dataset.s);
+    hint.classList.remove("err");
+    hint.textContent = "Ampel von Hand gestellt. Tippe auf „Start“, um wieder das Mikrofon zu nutzen.";
+  }));
+
+  // Mikrofon
+  let ctx = null, stream = null, analyser = null, buf = null, timer = null, level = 0;
+  const TICK = 60; // ms, ca. 16 Messungen pro Sekunde: schont das iPad beim Spiegeln
+
+  function measure() {
+    analyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    const rms = Math.sqrt(sum / buf.length) || 1e-8;
+    const db = 20 * Math.log10(rms);                 // etwa -90 (Stille) bis 0
+    const raw = Math.max(0, Math.min(100, (db + 75) * (100 / 60)));
+    // Glätten: schnell hoch, langsam runter
+    level += (raw - level) * (raw > level ? 0.25 : 0.08);
+    fill.style.transform = "scaleX(" + (level / 100).toFixed(3) + ")";
+
+    const target = level >= cfg.red ? "red" : level >= cfg.yellow ? "yellow" : "green";
+    const rank = { green: 0, yellow: 1, red: 2 };
+    const now = performance.now();
+    if (shown === null || rank[target] > rank[shown]) { show(target); since = now; }
+    else if (rank[target] < rank[shown] && now - since >= cfg.hold * 1000) {
+      show(rank[shown] === 2 && rank[target] === 0 ? "yellow" : target); since = now;
+    }
+  }
+
+  async function startMic() {
+    hint.classList.remove("err");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return micError("Das Mikrofon ist hier nicht verfügbar. Die Seite muss über https geöffnet werden. Du kannst die Ampel aber von Hand bedienen: Tippe auf eine Farbe.");
+    }
+    startBtn.disabled = true; startBtn.textContent = "Starte …";
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = ctx || new AC();
+      const resumed = ctx.resume();
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+      await resumed;
+      const src = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
+      buf = new Float32Array(analyser.fftSize);
+      src.connect(analyser);
+      mode = "mic"; level = 0; shown = null;
+      timer = setInterval(measure, TICK);
+      startBtn.textContent = "Stopp"; startBtn.disabled = false;
+      hint.textContent = "Die Ampel hört mit. Der weiße Balken zeigt die Lautstärke, die Striche die Grenzen für Gelb und Rot.";
+      keepAwake();
+    } catch (e) {
+      stopMic();
+      const n = e && e.name;
+      if (n === "NotAllowedError" || n === "SecurityError") {
+        micError("Das Mikrofon wurde nicht freigegeben. Am iPad in Safari: links in der Adressleiste auf „aA“ tippen, dann Website-Einstellungen, Mikrofon, Erlauben. Bis dahin kannst du auf eine Farbe tippen.");
+      } else if (n === "NotFoundError") {
+        micError("Es wurde kein Mikrofon gefunden. Du kannst die Ampel von Hand bedienen: Tippe auf eine Farbe.");
+      } else {
+        micError("Das Mikrofon konnte nicht gestartet werden. Du kannst die Ampel von Hand bedienen: Tippe auf eine Farbe.");
+      }
+    }
+  }
+  function micError(msg) {
+    hint.textContent = msg; hint.classList.add("err");
+    startBtn.disabled = false; startBtn.textContent = "Start";
+  }
+  function stopMic() {
+    clearInterval(timer); timer = null;
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    stream = null; analyser = null;
+    if (ctx && ctx.state === "running") ctx.suspend().catch(() => {});
+    fill.style.transform = "scaleX(0)";
+    startBtn.textContent = "Start"; startBtn.disabled = false;
+    releaseAwake();
+  }
+  startBtn.addEventListener("click", () => {
+    if (mode === "mic") {
+      stopMic(); mode = "idle"; show(null);
+      hint.classList.remove("err");
+      hint.textContent = "Angehalten. Tippe auf „Start“ zum Weitermachen.";
+    } else startMic();
+  });
+
+  // Bildschirm wach halten
+  let lock = null;
+  async function keepAwake() {
+    try { if ("wakeLock" in navigator) lock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  }
+  function releaseAwake() { try { lock && lock.release(); } catch (e) {} lock = null; }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && mode === "mic") keepAwake();
+  });
+
+  // Vollbild (am iPad nicht überall verfügbar)
+  const fsBtn = $("fsBtn");
+  const root = document.documentElement;
+  const canFs = root.requestFullscreen || root.webkitRequestFullscreen;
+  if (!canFs) fsBtn.hidden = true;
+  fsBtn.addEventListener("click", () => {
+    const inFs = document.fullscreenElement || document.webkitFullscreenElement;
+    try {
+      const p = inFs
+        ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+        : canFs.call(root);
+      if (p && p.catch) p.catch(() => { fsBtn.hidden = true; });
+    } catch (e) { fsBtn.hidden = true; }
+  });
+
+  renderCfg();
+  show(null);
+})();
+</script>
+
+</body></html>
