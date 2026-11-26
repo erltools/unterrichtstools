@@ -10,6 +10,7 @@ Vorschau ohne Server-Funktionen: https://erltools.github.io/unterrichtstools/
 | Lautstärke-Ampel | `ampel/` |
 | Wortwolke | `wortwolke/` (braucht PHP, speichert nur Wörter, löscht nach 24 h) |
 | Timer | `timer/` |
+| Glücksrad | `gluecksrad/` (Listen nur lokal im Browser) |
 | Mathefußball | `mathefussball/` |
 
 Jedes Tool ist eine einzelne HTML-Datei ohne Build-Schritt. Neue Tools bekommen einen eigenen Ordner und eine Kachel auf der Startseite (`index.html`).
@@ -18,4 +19,4 @@ Zurück-Link: Jedes Tool bindet `gemeinsam/zurueck.css` ein und setzt `<a class=
 
 Schrift: Atkinson Hyperlegible liegt lokal in `schrift/` (SIL Open Font License), damit keine Verbindung zu Google Fonts entsteht. Neue Tools binden `schrift/schrift.css` ein.
 
-Hochladen: Jeder Push auf `main` lädt die Seite per SFTP auf den Webspace (`.github/workflows/webspace.yml`). Dafür sind in GitHub die Secrets `SFTP_HOST`, `SFTP_USER`, `SFTP_PASSWORD` und `SFTP_DIR` (`/`, bei netcup ist der Dokumentstamm das Hauptverzeichnis) hinterlegt. Rundendaten der Wortwolke (`wortwolke/daten/*.json`) werden dabei nie überschrieben.
+Hochladen: netcup holt `main` über die Git-Verbindung in Plesk automatisch nach `/klassenkit.de/httpdocs` (Webhook in GitHub). Rundendaten der Wortwolke (`wortwolke/daten/*.json`) liegen nicht im Repo und bleiben dabei erhalten.
