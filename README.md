@@ -12,6 +12,7 @@ Vorschau ohne Server-Funktionen: https://erltools.github.io/unterrichtstools/
 | Timer | `timer/` |
 | Glücksrad | `gluecksrad/` (Listen nur lokal im Browser) |
 | Mathefußball | `mathefussball/` |
+| Sitzplan-Würfel | `sitzplan/` (Klassen und Pläne nur lokal im Browser) |
 
 Jedes Tool ist eine einzelne HTML-Datei ohne Build-Schritt. Neue Tools bekommen einen eigenen Ordner und eine Kachel auf der Startseite (`index.html`).
 

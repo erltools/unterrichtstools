@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sitzplan-Würfel</title>
+<link rel="stylesheet" href="../schrift/schrift.css">
+<link rel="stylesheet" href="../gemeinsam/zurueck.css">
+<style>
+/* Layout: Steuerung links (iPad quer) bzw. oben (iPad hoch), rechts der Klassenraum mit Tafel als festem Bezugspunkt. */
+:root{
+  --bg:#EEF2F0; --panel:#FFFFFF; --ink:#16201B; --muted:#5A6862; --line:#CBD5D0;
+  --board:#1E5A44; --board-ink:#F2F7F4; --accent:#1E6B4E; --accent-soft:#DCEDE5;
+  --desk:#E7DCC8; --desk-edge:#C9B99A; --seat:#FFFFFF; --seat-ink:#16201B;
+  --warn:#B3261E; --warn-soft:#FBE3E1; --sel:#1F5FBF;
+  --f-display:"Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111815; --panel:#18221E; --ink:#E6EEEA; --muted:#9AABA3; --line:#2E3C36;
+  --board:#2A7A5C; --board-ink:#F2F7F4; --accent:#5FC49B; --accent-soft:#1D3A2E;
+  --desk:#3A3328; --desk-edge:#574C3B; --seat:#222E29; --seat-ink:#EEF4F1;
+  --warn:#FF8A80; --warn-soft:#3D1F1D; --sel:#7FB0FF; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111815; --panel:#18221E; --ink:#E6EEEA; --muted:#9AABA3; --line:#2E3C36;
+  --board:#2A7A5C; --board-ink:#F2F7F4; --accent:#5FC49B; --accent-soft:#1D3A2E;
+  --desk:#3A3328; --desk-edge:#574C3B; --seat:#222E29; --seat-ink:#EEF4F1;
+  --warn:#FF8A80; --warn-soft:#3D1F1D; --sel:#7FB0FF; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px;
+  -webkit-tap-highlight-color:transparent}
+h1,h2{font-family:var(--f-display);margin:0;text-wrap:balance}
+h1{font-size:1.7rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.05rem;font-weight:600}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;max-width:1400px;margin:0 auto 16px}
+.top p{margin:2px 0 0;color:var(--muted);font-size:.95rem}
+.app{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:20px;max-width:1400px;margin:0 auto;align-items:start}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr)}}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card .hint{color:var(--muted);font-size:.88rem;margin:0}
+label{font-weight:700;font-size:.92rem}
+textarea,input,select{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;min-height:46px;width:100%}
+textarea{min-height:200px;resize:vertical;line-height:1.5}
+textarea:focus,input:focus,select:focus,button:focus-visible{outline:3px solid var(--sel);outline-offset:1px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.row>*{flex:1 1 0;min-width:0}
+.num{display:flex;flex-direction:column;gap:4px}
+.num input{text-align:center;font-variant-numeric:tabular-nums}
+button{font:inherit;font-weight:700;border-radius:8px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);min-height:46px;padding:8px 14px;cursor:pointer;touch-action:manipulation}
+button:active{transform:translateY(1px)}
+.primary{background:var(--accent);border-color:var(--accent);color:var(--panel);font-size:1.1rem;min-height:56px;font-family:var(--f-display)}
+:root .primary{color:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .primary{color:#0D1A14}}
+:root[data-theme="dark"] .primary{color:#0D1A14}
+.ghost{background:transparent}
+.danger{color:var(--warn)}
+.check{display:flex;gap:10px;align-items:flex-start;font-weight:400;font-size:.95rem}
+.check input{width:24px;height:24px;min-height:0;flex:none;margin-top:1px;accent-color:var(--accent)}
+.pairs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.pairs li{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:8px;padding:4px 4px 4px 12px}
+.pairs li span{flex:1;min-width:0;overflow-wrap:anywhere}
+.pairs li.bad span{color:var(--warn);text-decoration:line-through}
+.pairs button{min-height:40px;padding:4px 12px}
+.count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem;font-weight:400}
+
+.main{display:flex;flex-direction:column;gap:12px;min-width:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;border-radius:0;min-height:44px;background:transparent;font-weight:700}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.spacer{flex:1}
+.status{border-radius:8px;padding:10px 14px;font-weight:700;background:var(--accent-soft);color:var(--ink)}
+.status.warn{background:var(--warn-soft);color:var(--warn)}
+.status:empty{display:none}
+
+
+.room{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0}
+.room.flip{flex-direction:column-reverse}
+.board{background:var(--board);color:var(--board-ink);font-family:var(--f-display);font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:.85rem;padding:8px 0;border-radius:6px;text-align:center;width:60%;min-width:200px;max-width:100%}
+.scroller{max-width:100%;overflow:auto}
+.canvas{position:relative;--sc:1;width:calc(var(--W) * var(--sc) * 1px);height:calc(var(--H) * var(--sc) * 1px)}
+.canvas.moving{background-image:radial-gradient(circle,var(--line) 1.2px,transparent 1.3px);background-size:calc(var(--sc) * 40px) calc(var(--sc) * 40px);border-radius:6px;touch-action:none}
+.desk{position:absolute;background:var(--desk);border:2px solid var(--desk-edge);border-radius:8px;
+  left:calc(var(--x) * var(--sc) * 1px);top:calc(var(--y) * var(--sc) * 1px);width:calc(var(--w) * var(--sc) * 1px);height:calc(var(--h) * var(--sc) * 1px)}
+.canvas.moving .desk{cursor:grab;touch-action:none}
+.canvas.moving .desk .seat{pointer-events:none}
+.desk.dsel{outline:3px solid var(--sel);outline-offset:2px}
+.desk.drag{cursor:grabbing;z-index:5;box-shadow:0 6px 16px rgba(0,0,0,.18)}
+.seat{position:absolute;left:calc(var(--sx) * var(--sc) * 1px);top:calc(var(--sy) * var(--sc) * 1px);width:calc(100 * var(--sc) * 1px);height:calc(64 * var(--sc) * 1px);
+  border-radius:5px;background:var(--seat);color:var(--seat-ink);border:2px solid transparent;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:2px 4px;font-weight:700;font-size:var(--seat-fs,1rem);line-height:1.1;overflow:hidden;overflow-wrap:break-word;hyphens:manual;cursor:pointer;user-select:none;-webkit-user-select:none}
+.seat.empty{color:var(--muted);font-weight:400}
+.seat.blocked{background:repeating-linear-gradient(135deg,transparent 0 6px,var(--desk-edge) 6px 8px);color:var(--muted);font-weight:400;font-size:.8em}
+.seat.sel{border-color:var(--sel);box-shadow:0 0 0 3px var(--sel) inset}
+.seat.conflict{border-color:var(--warn);background:var(--warn-soft)}
+.legend{color:var(--muted);font-size:.88rem;margin:0}
+.movebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--accent-soft);border-radius:8px;padding:8px}
+.movebar .lbl{font-weight:700;font-size:.92rem;padding:0 4px}
+.movebar button{min-height:44px}
+.movebar button:disabled{opacity:.45;cursor:default}
+
+/* Druck- und Beamer-Ansicht */
+.present-head{display:none}
+body.present .side,body.present #shuffle,body.present .toolbar .edit-only,body.present .top,body.present .legend,body.present .status,body.present .movebar{display:none!important}
+body.present .app{grid-template-columns:minmax(0,1fr)}
+body.present .present-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+body.present .present-head h2{font-size:1.8rem;font-weight:800}
+body.present .present-head span{color:var(--muted);font-size:1.1rem}
+body.present .room{border:0;padding:4px 0}
+body.present .seat{cursor:default}
+@media print{
+  @page{size:A4 landscape;margin:12mm}
+  :root{--bg:#fff;--panel:#fff;--ink:#000;--seat:#fff;--seat-ink:#000;--desk:#fff;--desk-edge:#000;--board:#fff;--board-ink:#000;--muted:#444;color-scheme:light}
+  body{padding:0;font-size:12pt}
+  .side,.toolbar,.top,.legend,.status,#shuffle,.movebar{display:none!important}
+  .app{display:block}
+  .present-head{display:flex!important;justify-content:space-between;align-items:baseline;margin-bottom:6mm}
+  .present-head h2{font-size:20pt}
+  .room{border:0;padding:0}
+  .scroller{overflow:visible}
+  .canvas.moving{background:none}
+  .board{border:2px solid #000}
+  .seat{border:1.5px solid #000!important;background:#fff!important;box-shadow:none!important}
+  .seat.blocked{background:#eee!important}
+}
+.top .zurueck.im-fluss{margin-bottom:4px}
+.zurueck:hover,.zurueck:focus-visible{color:var(--ink);background:var(--accent-soft)}
+.zurueck:focus-visible{outline-color:var(--sel)}
+body.present .top{display:none}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <a class="zurueck im-fluss" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
+    <h1>Sitzplan-Würfel</h1>
+    <p>Namen eintragen, Tische aufstellen, würfeln. Alles bleibt auf diesem Gerät.</p>
+  </div>
+  <div class="row" style="flex:0 1 420px">
+    <div class="num" style="flex:2"><label for="classSel">Klasse</label><select id="classSel"></select></div>
+    <button id="newClass" type="button" style="flex:0 0 auto">+ Neue Klasse</button>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="side">
+    <section class="card">
+      <label for="className">Name der Klasse</label><input id="className" maxlength="40">
+      <label for="names">Schülerinnen und Schüler <span class="count" id="nameCount"></span></label>
+      <textarea id="names" spellcheck="false" placeholder="Ein Name pro Zeile"></textarea>
+      <p class="hint">Ein Name pro Zeile. Kurze Namen passen am besten auf die Tische, z. B. „Lena K.“</p>
+    </section>
+
+    <section class="card">
+      <h2>Tische in Reihen aufstellen</h2>
+      <div class="row">
+        <div class="num"><label for="rows">Reihen</label><input id="rows" type="number" inputmode="numeric" min="1" max="12"></div>
+        <div class="num"><label for="tables">Tische pro Reihe</label><input id="tables" type="number" inputmode="numeric" min="1" max="8"></div>
+        <div class="num"><label for="seats">Plätze pro Tisch</label><input id="seats" type="number" inputmode="numeric" min="1" max="6"></div>
+      </div>
+      <p class="hint" id="customHint" hidden>Du hast die Tische selbst angeordnet. Die Zahlen oben greifen erst, wenn du die Reihen neu aufstellst.</p>
+      <button id="regrid" type="button" hidden>Reihen neu aufstellen</button>
+      <div id="regridConfirm" hidden class="row">
+        <button id="regridYes" type="button" class="danger" style="border-color:var(--warn)">Ja, eigene Anordnung ersetzen</button>
+        <button id="regridNo" type="button">Abbrechen</button>
+      </div>
+      <p class="hint">Eigene Anordnung (Gruppentische, U-Form …): unter dem Plan auf „Tische verschieben“ tippen.</p>
+      <p class="hint" id="seatInfo"></p>
+    </section>
+
+    <section class="card">
+      <h2>Nicht nebeneinander</h2>
+      <div class="row">
+        <div class="num"><label for="pairA">Person 1</label><select id="pairA"></select></div>
+        <div class="num"><label for="pairB">Person 2</label><select id="pairB"></select></div>
+      </div>
+      <button id="addPair" type="button">Paar hinzufügen</button>
+      <ul class="pairs" id="pairs"></ul>
+      <label class="check"><input type="checkbox" id="strict"> Strenger: auch nicht am Nachbartisch direkt daneben und nicht direkt davor oder dahinter</label>
+    </section>
+
+    <section class="card">
+      <button id="resetClass" type="button" class="ghost danger">Diese Klasse löschen</button>
+      <div id="confirmBox" hidden class="row">
+        <button id="confirmDel" type="button" class="danger" style="border-color:var(--warn)">Ja, löschen</button>
+        <button id="cancelDel" type="button">Abbrechen</button>
+      </div>
+    </section>
+  </aside>
+
+  <main class="main">
+    <button id="shuffle" type="button" class="primary">Neue Sitzordnung würfeln</button>
+    <div class="toolbar">
+      <div class="seg edit-only" role="group" aria-label="Was passiert beim Tippen">
+        <button type="button" id="modeSwap" aria-pressed="true">Tauschen</button>
+        <button type="button" id="modeBlock" aria-pressed="false">Platz sperren</button>
+        <button type="button" id="modeMove" aria-pressed="false">Tische verschieben</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="seg" role="group" aria-label="Blickrichtung">
+        <button type="button" id="viewStudent" aria-pressed="true">Tafel oben</button>
+        <button type="button" id="viewTeacher" aria-pressed="false">Lehrerblick</button>
+      </div>
+      <button type="button" id="present">Druckansicht</button>
+      <button type="button" id="printBtn" hidden>Drucken</button>
+    </div>
+    <div class="movebar" id="movebar" hidden>
+      <button type="button" id="add2">+ Zweiertisch</button>
+      <button type="button" id="add1">+ Einzeltisch</button>
+      <span class="spacer"></span>
+      <span class="lbl" id="deskLbl">Tisch antippen zum Bearbeiten</span>
+      <button type="button" id="dRot" disabled>Drehen</button>
+      <button type="button" id="dPlus" disabled>Platz +</button>
+      <button type="button" id="dMinus" disabled>Platz −</button>
+      <button type="button" id="dDel" class="danger" disabled>Tisch entfernen</button>
+    </div>
+    <div class="status" id="status" role="status"></div>
+    <div class="present-head"><h2 id="pTitle"></h2><span id="pDate"></span></div>
+    <div class="room" id="room"><div class="board">Tafel</div><div class="scroller" id="scroller"><div class="canvas" id="canvas"></div></div></div>
+    <p class="legend" id="legend"></p>
+  </main>
+</div>
+
+<script>
+(function(){
+const KEY='sitzplan-wuerfel.v1';
+const SW=100,SH=64,G=6,P=6,SNAP=20;
+const $=id=>document.getElementById(id);
+const SAMPLE=['Amira','Ben','Can','Dana','Elias','Finja','Gül','Hannes','Ida','Jonas','Kaja','Leon','Mia','Noah','Ole','Paula','Quentin','Rosa','Sami','Tilda','Umut','Vera','Wim','Yara','Zoe','Malte'];
+function uid(p){return (p||'k')+Math.random().toString(36).slice(2,9)}
+
+// ---------- Raum-Geometrie ----------
+function deskSize(d){const n=d.n;return d.rot?{w:SW+2*P,h:n*SH+(n-1)*G+2*P}:{w:n*SW+(n-1)*G+2*P,h:SH+2*P}}
+function seatRel(d,s){return d.rot?{x:P,y:P+s*(SH+G)}:{x:P+s*(SW+G),y:P}}
+function seatRect(d,s){const r=seatRel(d,s);return {x:d.x+r.x,y:d.y+r.y,w:SW,h:SH}}
+function buildGrid(c){
+  const n=c.seats,dw=n*SW+(n-1)*G+2*P,dh=SH+2*P,gx=n>=3?60:80,gy=60,m=40;
+  const total=c.tables*dw+(c.tables-1)*gx;
+  c.W=Math.max(1000,total+2*m);c.H=Math.max(560,c.rows*dh+(c.rows-1)*gy+2*m);
+  const x0=Math.round((c.W-total)/2);
+  c.desks=[];
+  for(let r=0;r<c.rows;r++)for(let t=0;t<c.tables;t++)c.desks.push({id:'r'+r+'t'+t,x:x0+t*(dw+gx),y:m+r*(dh+gy),n:n,rot:0});
+  c.custom=false;cleanup(c);
+}
+function newClass(name,sample){
+  const c={name:name,names:sample?SAMPLE.join('\n'):'',rows:5,tables:3,seats:2,blocked:[],pairs:sample?[['Ben','Leon'],['Mia','Paula']]:[],strict:false,plan:null};
+  buildGrid(c);return c;
+}
+// alte Speicherstände (nur Raster) übernehmen
+function migrate(c){
+  if(c.desks)return;
+  const plan=c.plan,blocked=c.blocked||[];
+  const conv=id=>{const [r,t,s]=id.split('-');return 'r'+r+'t'+t+':'+s};
+  c.plan=null;c.blocked=[];buildGrid(c);
+  if(plan){c.plan={};for(const k in plan)c.plan[conv(k)]=plan[k]}
+  c.blocked=blocked.map(conv);cleanup(c);
+}
+
+let S=null;
+function load(){
+  try{const raw=localStorage.getItem(KEY); if(raw){const d=JSON.parse(raw); if(d&&d.classes&&Object.keys(d.classes).length){for(const k in d.classes)migrate(d.classes[k]);return d}}}catch(e){}
+  const id=uid(); return {current:id,view:'student',classes:{[id]:newClass('7b (Beispiel)',true)}};
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+S=load();
+if(!S.classes[S.current]) S.current=Object.keys(S.classes)[0];
+const C=()=>S.classes[S.current];
+let mode='swap', selected=null, selDesk=null;
+
+function names(c){const seen=new Set(),out=[];for(const l of c.names.split('\n')){const n=l.trim();if(n&&!seen.has(n.toLowerCase())){seen.add(n.toLowerCase());out.push(n)}}return out}
+function clampInt(v,min,max,def){v=parseInt(v,10);if(isNaN(v))return def;return Math.max(min,Math.min(max,v))}
+function allSeats(c){const a=[];for(const d of c.desks)for(let s=0;s<d.n;s++)a.push(d.id+':'+s);return a}
+function cleanup(c){
+  const valid=new Set(allSeats(c)),list=new Set(names(c));
+  c.blocked=(c.blocked||[]).filter(id=>valid.has(id));const bl=new Set(c.blocked);
+  if(c.plan)for(const id in c.plan){if(!valid.has(id)||!list.has(c.plan[id])||bl.has(id))delete c.plan[id]}
+}
+// Wer gilt als Nachbar? Am selben Tisch direkt daneben; zusammengeschobene Tische zählen mit.
+// Streng: auch Nachbartisch und direkt davor/dahinter (bis etwa eine Tischbreite Abstand).
+function neighborMap(c){
+  const seats=[];for(const d of c.desks)for(let s=0;s<d.n;s++)seats.push({id:d.id+':'+s,d:d,s:s,r:seatRect(d,s)});
+  const m={};seats.forEach(a=>m[a.id]=[]);
+  const lim=c.strict?100:20;
+  for(let i=0;i<seats.length;i++)for(let j=i+1;j<seats.length;j++){
+    const a=seats[i],b=seats[j];let nb=false;
+    if(a.d===b.d){nb=Math.abs(a.s-b.s)===1}
+    else{
+      const A=a.r,B=b.r;
+      const ox=Math.min(A.x+A.w,B.x+B.w)-Math.max(A.x,B.x),oy=Math.min(A.y+A.h,B.y+B.h)-Math.max(A.y,B.y);
+      const gx=-ox,gy=-oy;
+      nb=(oy>20&&gx<lim)||(ox>30&&gy<lim);
+    }
+    if(nb){m[a.id].push(b.id);m[b.id].push(a.id)}
+  }
+  return m;
+}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function avoidMap(c){
+  const list=names(c),set=new Set(list),m=new Map();list.forEach(n=>m.set(n,new Set()));
+  for(const [a,b] of c.pairs){if(set.has(a)&&set.has(b)&&a!==b){m.get(a).add(b);m.get(b).add(a)}}
+  return m;
+}
+function conflicts(c){
+  const bad=new Set(); if(!c.plan)return bad;
+  const av=avoidMap(c),nm=neighborMap(c);
+  for(const id in c.plan){const n=c.plan[id];if(!n||!av.has(n)||!nm[id])continue;
+    for(const nb of nm[id]){const o=c.plan[nb];if(o&&av.get(n).has(o)){bad.add(id);bad.add(nb)}}}
+  return bad;
+}
+function generate(c){
+  const blocked=new Set(c.blocked);
+  const free=allSeats(c).filter(id=>!blocked.has(id));
+  const list=names(c);
+  if(!list.length)return {ok:false,msg:'Bitte zuerst Namen eintragen.'};
+  if(list.length>free.length)return {ok:false,msg:'Zu wenige Plätze: '+list.length+' Namen, aber nur '+free.length+' freie Plätze. Tische ergänzen oder gesperrte Plätze freigeben.'};
+  const av=avoidMap(c),nb=neighborMap(c);
+  for(let attempt=0;attempt<60;attempt++){
+    const order=shuffle(list).sort((a,b)=>av.get(b).size-av.get(a).size);
+    const plan={},used=new Set();let budget=4000;
+    const place=i=>{
+      if(i===order.length)return true;
+      if(--budget<0)return false;
+      const n=order[i];
+      for(const seat of shuffle(free)){
+        if(used.has(seat))continue;
+        if(nb[seat].some(x=>plan[x]&&av.get(n).has(plan[x])))continue;
+        plan[seat]=n;used.add(seat);
+        if(place(i+1))return true;
+        delete plan[seat];used.delete(seat);
+        if(budget<0)return false;
+      }
+      return false;
+    };
+    if(place(0)){c.plan=plan;return {ok:true}}
+  }
+  const plan={};shuffle(free).forEach((seat,i)=>{if(i<list.length)plan[seat]=list[i]});
+  c.plan=plan;
+  return {ok:true,warn:'Nicht alle Wünsche passen in diesen Raum. Die rot markierten Plätze bitte von Hand tauschen.'};
+}
+
+function setStatus(msg,warn){const el=$('status');el.textContent=msg||'';el.classList.toggle('warn',!!warn)}
+
+function renderClassSel(){
+  const sel=$('classSel');sel.innerHTML='';
+  for(const id in S.classes){const o=document.createElement('option');o.value=id;o.textContent=S.classes[id].name||'Ohne Namen';if(id===S.current)o.selected=true;sel.appendChild(o)}
+}
+function renderInputs(){
+  const c=C();
+  $('className').value=c.name;$('names').value=c.names;
+  $('rows').value=c.rows;$('tables').value=c.tables;$('seats').value=c.seats;$('strict').checked=!!c.strict;
+}
+function renderCounts(){
+  const c=C(),n=names(c).length,total=allSeats(c).length,free=total-c.blocked.length;
+  $('nameCount').textContent='('+n+')';
+  const info=$('seatInfo');
+  info.textContent=c.desks.length+' Tische, '+free+' freie Plätze für '+n+' Namen'+(c.blocked.length?' ('+c.blocked.length+' gesperrt)':'')+'.';
+  info.style.color=n>free?'var(--warn)':'';
+  $('customHint').hidden=!c.custom;$('regrid').hidden=!c.custom||!$('regridConfirm').hidden;
+}
+function renderPairSelects(){
+  const list=names(C()).slice().sort((a,b)=>a.localeCompare(b,'de'));
+  for(const id of ['pairA','pairB']){const sel=$(id),prev=sel.value;sel.innerHTML='<option value="">Bitte wählen</option>';
+    list.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o)});
+    if(list.includes(prev))sel.value=prev;}
+}
+function renderPairs(){
+  const c=C(),set=new Set(names(c)),ul=$('pairs');ul.innerHTML='';
+  if(!c.pairs.length){const li=document.createElement('li');li.innerHTML='<span class="count">Noch keine Paare.</span>';ul.appendChild(li);return}
+  c.pairs.forEach((p,i)=>{
+    const li=document.createElement('li');const ok=set.has(p[0])&&set.has(p[1]);if(!ok)li.className='bad';
+    const sp=document.createElement('span');sp.textContent=p[0]+' und '+p[1];if(!ok)sp.title='Name nicht mehr in der Liste';
+    const b=document.createElement('button');b.type='button';b.textContent='Entfernen';b.setAttribute('aria-label','Paar '+p[0]+' und '+p[1]+' entfernen');
+    b.onclick=()=>{c.pairs.splice(i,1);save();renderPairs();renderPlan()};
+    li.append(sp,b);ul.appendChild(li);
+  });
+}
+const LEGEND={
+  swap:'Zwei Plätze nacheinander antippen, um zu tauschen. Rot markiert: Paar sitzt doch nebeneinander.',
+  block:'Platz antippen, um ihn zu sperren oder wieder freizugeben. Gesperrte Plätze (schraffiert) bleiben beim Würfeln frei.',
+  move:'Tische mit dem Finger verschieben. Tisch antippen, um ihn zu drehen, Plätze zu ändern oder zu entfernen. Aneinandergeschobene Tische zählen als „nebeneinander“.'
+};
+const flip=()=>S.view==='teacher';
+function deskBox(c,d){const z=deskSize(d);return flip()?{x:c.W-d.x-z.w,y:c.H-d.y-z.h,w:z.w,h:z.h}:{x:d.x,y:d.y,w:z.w,h:z.h}}
+function placeDesk(el,c,d){const b=deskBox(c,d);el.style.setProperty('--x',b.x);el.style.setProperty('--y',b.y);el.style.setProperty('--w',b.w);el.style.setProperty('--h',b.h)}
+function renderPlan(){
+  const c=C(),cv=$('canvas');cv.innerHTML='';
+  const blocked=new Set(c.blocked),bad=conflicts(c);
+  $('room').classList.toggle('flip',flip());
+  $('viewStudent').setAttribute('aria-pressed',!flip());$('viewTeacher').setAttribute('aria-pressed',flip());
+  cv.classList.toggle('moving',mode==='move');
+  cv.style.setProperty('--W',c.W);cv.style.setProperty('--H',c.H);
+  for(const d of c.desks){
+    const el=document.createElement('div');el.className='desk';el.dataset.desk=d.id;placeDesk(el,c,d);
+    if(mode==='move'&&selDesk===d.id)el.classList.add('dsel');
+    const z=deskSize(d);
+    for(let s=0;s<d.n;s++){
+      const id=d.id+':'+s,r=seatRel(d,s),e=document.createElement('div');
+      const sx=flip()?z.w-r.x-SW-4:r.x-2, sy=flip()?z.h-r.y-SH-4:r.y-2; // -2: Rahmen des Tisches
+      e.className='seat';e.dataset.id=id;e.style.setProperty('--sx',sx);e.style.setProperty('--sy',sy);
+      if(mode!=='move'){e.setAttribute('role','button');e.tabIndex=0}
+      if(blocked.has(id)){e.classList.add('blocked');e.textContent='gesperrt'}
+      else{const n=c.plan&&c.plan[id];if(n)e.textContent=n;else{e.classList.add('empty');e.textContent='frei'}}
+      if(bad.has(id))e.classList.add('conflict');
+      if(selected===id)e.classList.add('sel');
+      el.appendChild(e);
+    }
+    cv.appendChild(el);
+  }
+  $('legend').textContent=LEGEND[mode];
+  renderMovebar();
+  fitSeats();
+  $('pTitle').textContent='Sitzplan '+(c.name||'');
+  $('pDate').textContent=new Date().toLocaleDateString('de-DE',{day:'numeric',month:'long',year:'numeric'});
+  if(c.plan&&bad.size&&mode!=='move')setStatus('Rot markiert: Diese Paare sitzen nebeneinander. Zum Tauschen zwei Plätze antippen.',true);
+}
+function renderMovebar(){
+  const c=C(),on=mode==='move'&&!document.body.classList.contains('present');$('movebar').hidden=!on;
+  const d=c.desks.find(x=>x.id===selDesk);
+  for(const id of ['dRot','dPlus','dMinus','dDel'])$(id).disabled=!d;
+  if(d){$('dPlus').disabled=d.n>=6;$('dMinus').disabled=d.n<=1;$('deskLbl').textContent='Tisch mit '+d.n+(d.n===1?' Platz:':' Plätzen:')}
+  else $('deskLbl').textContent='Tisch antippen zum Bearbeiten';
+}
+// Maßstab so wählen, dass der ganze Raum sichtbar ist (wichtig beim Spiegeln auf den Beamer)
+function fitSeats(forPrint){
+  const c=C(),cv=$('canvas'),present=document.body.classList.contains('present');
+  let sc;
+  if(forPrint){sc=Math.min(1000/c.W,600/c.H)}
+  else{
+    const avail=$('room').clientWidth-30; if(avail<=0)return;
+    sc=avail/c.W;
+    if(present){const top=cv.getBoundingClientRect().top+window.scrollY;sc=Math.min(sc,(window.innerHeight-top-70)/c.H)}
+    sc=Math.max(sc,0.55);sc=Math.min(sc,present?2:1.4);
+  }
+  const longest=Math.max(4,...names(c).map(x=>x.length));
+  const fs=Math.max(11,Math.min((SW*sc-8)/Math.max(4,longest*0.6),present?30:20));
+  cv.style.setProperty('--sc',sc.toFixed(4));cv.style.setProperty('--seat-fs',fs.toFixed(1)+'px');
+}
+function renderAll(){renderClassSel();renderInputs();renderCounts();renderPairSelects();renderPairs();setStatus('');renderPlan()}
+
+// ---------- Eingaben ----------
+$('classSel').onchange=e=>{S.current=e.target.value;selected=null;selDesk=null;save();renderAll()};
+$('newClass').onclick=()=>{const id=uid();S.classes[id]=newClass('Neue Klasse',false);S.current=id;selected=null;selDesk=null;save();renderAll();$('className').focus();$('className').select()};
+$('className').oninput=e=>{C().name=e.target.value;save();renderClassSel();$('pTitle').textContent='Sitzplan '+e.target.value};
+let nameTimer;
+$('names').oninput=e=>{C().names=e.target.value;save();renderCounts();clearTimeout(nameTimer);nameTimer=setTimeout(()=>{cleanup(C());save();renderPairSelects();renderPairs();renderPlan()},400)};
+for(const [id,min,max,def] of [['rows',1,12,5],['tables',1,8,3],['seats',1,6,2]]){
+  $(id).onchange=e=>{const c=C();c[id]=clampInt(e.target.value,min,max,def);e.target.value=c[id];
+    if(!c.custom){buildGrid(c);selected=null;selDesk=null;save();renderCounts();renderPlan()}else save()};
+}
+$('regrid').onclick=()=>{$('regrid').hidden=true;$('regridConfirm').hidden=false};
+$('regridNo').onclick=()=>{$('regridConfirm').hidden=true;renderCounts()};
+$('regridYes').onclick=()=>{const c=C();buildGrid(c);selected=null;selDesk=null;$('regridConfirm').hidden=true;save();renderCounts();setStatus('');renderPlan()};
+$('strict').onchange=e=>{C().strict=e.target.checked;save();setStatus('');renderPlan()};
+$('addPair').onclick=()=>{
+  const a=$('pairA').value,b=$('pairB').value,c=C();
+  if(!a||!b){setStatus('Bitte zwei Namen auswählen.',true);return}
+  if(a===b){setStatus('Bitte zwei verschiedene Namen auswählen.',true);return}
+  if(c.pairs.some(p=>(p[0]===a&&p[1]===b)||(p[0]===b&&p[1]===a))){setStatus('Dieses Paar ist schon eingetragen.',true);return}
+  c.pairs.push([a,b]);save();$('pairA').value='';$('pairB').value='';setStatus('');renderPairs();renderPlan();
+};
+$('shuffle').onclick=()=>{
+  const c=C();selected=null;const res=generate(c);
+  if(!res.ok){setStatus(res.msg,true);renderPlan();return}
+  save();setStatus('');renderPlan();
+  setStatus(res.warn||('Neue Sitzordnung für '+names(c).length+' Personen.'),!!res.warn);
+};
+function setMode(m){mode=m;selected=null;selDesk=null;for(const [b,k] of [['modeSwap','swap'],['modeBlock','block'],['modeMove','move']])$(b).setAttribute('aria-pressed',m===k);setStatus('');renderPlan()}
+$('modeSwap').onclick=()=>setMode('swap');$('modeBlock').onclick=()=>setMode('block');$('modeMove').onclick=()=>setMode('move');
+$('viewStudent').onclick=()=>{S.view='student';save();renderPlan()};
+$('viewTeacher').onclick=()=>{S.view='teacher';save();renderPlan()};
+$('printBtn').onclick=()=>{try{window.print()}catch(e){}};
+$('present').onclick=()=>{const on=document.body.classList.toggle('present');$('printBtn').hidden=!on;$('present').textContent=on?'Zurück zum Bearbeiten':'Druckansicht';selected=null;window.scrollTo(0,0);renderPlan()};
+
+function tapSeat(id){
+  if(document.body.classList.contains('present')||mode==='move')return;
+  const c=C();
+  if(mode==='block'){
+    const i=c.blocked.indexOf(id);
+    if(i>=0)c.blocked.splice(i,1);else{c.blocked.push(id);if(c.plan)delete c.plan[id]}
+    save();renderCounts();setStatus('');renderPlan();return;
+  }
+  if(c.blocked.includes(id))return;
+  if(!c.plan)c.plan={};
+  if(selected===null){selected=id;renderPlan();return}
+  if(selected===id){selected=null;renderPlan();return}
+  const a=c.plan[selected],b=c.plan[id];
+  if(b)c.plan[selected]=b;else delete c.plan[selected];
+  if(a)c.plan[id]=a;else delete c.plan[id];
+  selected=null;save();setStatus('');renderPlan();
+}
+$('canvas').addEventListener('click',e=>{const s=e.target.closest('.seat');if(s)tapSeat(s.dataset.id)});
+$('canvas').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const s=e.target.closest('.seat');if(s){e.preventDefault();tapSeat(s.dataset.id)}}});
+
+// ---------- Tische verschieben ----------
+let drag=null;
+function scNow(){return parseFloat($('canvas').style.getPropertyValue('--sc'))||1}
+$('canvas').addEventListener('pointerdown',e=>{
+  if(mode!=='move')return;
+  const el=e.target.closest('.desk');
+  if(!el){if(selDesk){selDesk=null;renderPlan()}return}
+  const d=C().desks.find(x=>x.id===el.dataset.desk);if(!d)return;
+  e.preventDefault();el.setPointerCapture(e.pointerId);
+  drag={d:d,el:el,sx:e.clientX,sy:e.clientY,x0:d.x,y0:d.y,moved:false,sc:scNow()};
+});
+$('canvas').addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const c=C(),f=flip()?-1:1,dx=(e.clientX-drag.sx)/drag.sc*f,dy=(e.clientY-drag.sy)/drag.sc*f;
+  if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<6)return;
+  if(!drag.moved){drag.moved=true;drag.el.classList.add('drag')}
+  const z=deskSize(drag.d);
+  drag.d.x=Math.max(0,Math.min(c.W-z.w,Math.round((drag.x0+dx)/SNAP)*SNAP));
+  drag.d.y=Math.max(0,Math.min(c.H-z.h,Math.round((drag.y0+dy)/SNAP)*SNAP));
+  placeDesk(drag.el,c,drag.d);
+});
+function endDrag(){
+  if(!drag)return;const c=C(),d=drag.d,moved=drag.moved;drag=null;
+  if(moved){
+    c.custom=true;
+    // Raum wächst mit, wenn ein Tisch an den Rand geschoben wird
+    const z=deskSize(d);if(d.x+z.w>=c.W-SNAP)c.W+=160;if(d.y+z.h>=c.H-SNAP)c.H+=120;
+    save();renderCounts();
+  }
+  selDesk=d.id;renderPlan();
+}
+$('canvas').addEventListener('pointerup',endDrag);$('canvas').addEventListener('pointercancel',endDrag);
+
+function freeSpot(c,d){
+  const z=deskSize(d);
+  for(let y=20;y+z.h<=c.H;y+=SNAP)for(let x=20;x+z.w<=c.W;x+=SNAP){
+    const hit=c.desks.some(o=>{const q=deskSize(o);return x<o.x+q.w+20&&x+z.w+20>o.x&&y<o.y+q.h+20&&y+z.h+20>o.y});
+    if(!hit)return {x,y};
+  }
+  c.H+=z.h+40;return {x:20,y:c.H-z.h-20};
+}
+function addDesk(n){const c=C(),d={id:uid('d'),x:0,y:0,n:n,rot:0};const p=freeSpot(c,d);d.x=p.x;d.y=p.y;c.desks.push(d);c.custom=true;selDesk=d.id;save();renderCounts();renderPlan()}
+$('add2').onclick=()=>addDesk(2);$('add1').onclick=()=>addDesk(1);
+function curDesk(){return C().desks.find(x=>x.id===selDesk)}
+function fitIn(c,d){const z=deskSize(d);if(d.x+z.w>c.W)c.W=d.x+z.w+40;if(d.y+z.h>c.H)c.H=d.y+z.h+40}
+$('dRot').onclick=()=>{const c=C(),d=curDesk();if(!d)return;d.rot=d.rot?0:1;fitIn(c,d);c.custom=true;save();renderPlan()};
+$('dPlus').onclick=()=>{const c=C(),d=curDesk();if(!d||d.n>=6)return;d.n++;fitIn(c,d);c.custom=true;save();renderCounts();renderPlan()};
+$('dMinus').onclick=()=>{const c=C(),d=curDesk();if(!d||d.n<=1)return;d.n--;c.custom=true;cleanup(c);save();renderCounts();renderPlan()};
+$('dDel').onclick=()=>{const c=C();c.desks=c.desks.filter(x=>x.id!==selDesk);selDesk=null;c.custom=true;cleanup(c);save();renderCounts();renderPlan()};
+
+$('resetClass').onclick=()=>{$('confirmBox').hidden=false;$('resetClass').hidden=true};
+$('cancelDel').onclick=()=>{$('confirmBox').hidden=true;$('resetClass').hidden=false};
+$('confirmDel').onclick=()=>{
+  delete S.classes[S.current];
+  if(!Object.keys(S.classes).length){const id=uid();S.classes[id]=newClass('Neue Klasse',false)}
+  S.current=Object.keys(S.classes)[0];$('confirmBox').hidden=true;$('resetClass').hidden=false;selected=null;selDesk=null;save();renderAll();
+};
+
+if(window.ResizeObserver){let raf=0;new ResizeObserver(()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>fitSeats())}).observe($('room'))}
+window.addEventListener('resize',()=>{if(document.body.classList.contains('present'))fitSeats()});
+window.addEventListener('beforeprint',()=>fitSeats(true));
+window.addEventListener('afterprint',()=>fitSeats());
+
+// Beim ersten Öffnen gleich einen Beispielplan zeigen
+if(!C().plan&&names(C()).length){generate(C());save()}
+renderAll();
+})();
+</script>
+</body>
+</html>
