@@ -1,6 +1,6 @@
 # Lädt die Website bei jedem Push auf main per SFTP auf den Webspace hoch.
 # Einmalig in GitHub unter Settings > Secrets and variables > Actions anlegen:
-#   SFTP_HOST, SFTP_USER, SFTP_PASSWORD und SFTP_DIR (Zielordner, z. B. /html/unterrichtstools)
+#   SFTP_HOST, SFTP_USER, SFTP_PASSWORD und SFTP_DIR (Zielordner, bei netcup: /)
 # Solange die Secrets fehlen, wird nichts hochgeladen.
 name: Auf Webspace hochladen
 
