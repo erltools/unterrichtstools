@@ -1,0 +1,7 @@
+# Browser sollen HTML, CSS und JavaScript bei jedem Aufruf kurz beim Server nachfragen,
+# ob es eine neue Version gibt. So kommen Änderungen sofort an, ohne Cache leeren.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|css|js)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
