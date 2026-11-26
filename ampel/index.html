@@ -109,6 +109,36 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
 #redIn { accent-color: var(--red); }
 .sheet .bar { justify-content: flex-start; }
 
+
+/* Aquarium */
+.tank { flex: 1; min-height: 0; position: relative; border-radius: 18px; overflow: hidden; background: #0a3550; }
+.tank canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hud {
+  position: absolute; top: 12px; right: max(12px, env(safe-area-inset-right, 0px));
+  background: rgba(4, 20, 32, .72); border-radius: 14px; padding: 12px 16px;
+  display: grid; gap: 8px; min-width: 210px; color: #fff;
+}
+.hud-top { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; }
+.hud-top .dot { width: 18px; height: 18px; border-radius: 50%; background: var(--off); flex-shrink: 0; }
+.hud-top .dot[data-s="green"] { background: var(--green); }
+.hud-top .dot[data-s="yellow"] { background: var(--yellow); }
+.hud-top .dot[data-s="red"] { background: var(--red); }
+.hud-next { font-size: 15px; color: #cfe3ee; font-variant-numeric: tabular-nums; }
+.hud-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; }
+.hud-bar div { height: 100%; background: #7dd3fc; transform-origin: left center; transform: scaleX(0); }
+.tank-msg {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  background: rgba(4, 20, 32, .78); color: #fff; border-radius: 16px; padding: 18px 24px;
+  font-size: clamp(18px, 2.4vw, 28px); font-weight: 700; text-align: center; max-width: 80%;
+}
+.tank-pop {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+  background: #fff; color: #0a3550; border-radius: 999px; padding: 8px 20px;
+  font-size: clamp(18px, 2.2vw, 26px); font-weight: 700;
+}
+.tank-pop.bad { background: var(--red); color: #fff; }
+#fishIn { accent-color: #7dd3fc; }
+
 @media (orientation: portrait) {
   .stage { flex-direction: column; gap: 20px; }
   .light { height: auto; width: min(46vw, 24vh); max-width: none; flex-shrink: 0; }
@@ -142,9 +172,20 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
       <p class="hint" id="hint">Tippe auf „Start“, damit die Ampel über das Mikrofon mithört. Oder tippe direkt auf eine Farbe.</p>
     </div>
   </main>
+  <div class="tank" id="tank" hidden>
+    <canvas id="tankCv" aria-label="Aquarium. Ist die Klasse leise, kommen neue Fische dazu."></canvas>
+    <div class="hud">
+      <div class="hud-top"><span class="dot" id="aqDot"></span><span id="aqCount">0 Fische</span></div>
+      <div class="hud-next" id="aqNext">Nächster Fisch: –</div>
+      <div class="hud-bar"><div id="aqBar"></div></div>
+    </div>
+    <div class="tank-msg" id="aqMsg">Tippe auf „Start“. Ist die Klasse leise, kommen nach und nach Fische ins Aquarium.</div>
+    <div class="tank-pop" id="aqPop" hidden></div>
+  </div>
   <nav class="bar">
     <button class="btn primary" id="startBtn">Start</button>
     <button class="btn" id="setBtn" aria-expanded="false" aria-controls="sheet">Einstellungen</button>
+    <button class="btn" id="viewBtn">Aquarium</button>
     <button class="btn" id="fsBtn">Vollbild</button>
   </nav>
 </div>
@@ -165,16 +206,22 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
     <input type="range" id="holdIn" min="1" max="10" step="1">
     <p>So lange bleibt Gelb oder Rot mindestens stehen, damit die Ampel nicht flackert.</p>
   </div>
+  <div class="row">
+    <label for="fishIn">Aquarium: neuer Fisch nach <span id="fishVal"></span></label>
+    <input type="range" id="fishIn" min="1" max="15" step="1">
+    <p>So lange muss die Ampel auf Grün stehen, bis ein neuer Fisch kommt. Bei Gelb hält die Zeit an. Bei Rot schwimmt der zuletzt gekommene Fisch weg, bei anhaltendem Rot alle 10 Sekunden ein weiterer.</p>
+  </div>
   <div class="bar">
     <button class="btn" id="resetBtn">Standardwerte</button>
     <button class="btn" id="cntReset">Zähler auf 0</button>
+    <button class="btn" id="aqReset">Aquarium leeren</button>
     <button class="btn primary" id="closeBtn">Fertig</button>
   </div>
 </section>
 
 <script>
 (() => {
-  const DEFAULTS = { yellow: 25, red: 45, hold: 3 };
+  const DEFAULTS = { yellow: 25, red: 45, hold: 3, fish: 2 };
   const LABELS = { green: "Gut so!", yellow: "Etwas leiser", red: "Zu laut!" };
   const KEY = "laerm-ampel-v1";
   let cfg = { ...DEFAULTS };
@@ -204,12 +251,15 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
     lamps.forEach((l) => l.classList.toggle("on", l.dataset.s === s));
     word.dataset.s = s || "idle";
     word.textContent = s ? LABELS[s] : "Bereit";
+    if (onShow) onShow(s);
   }
+  let onShow = null;
 
   function renderCfg() {
     $("yellowIn").value = cfg.yellow; $("redIn").value = cfg.red; $("holdIn").value = cfg.hold;
     $("yellowVal").textContent = cfg.yellow; $("redVal").textContent = cfg.red;
     $("holdVal").textContent = cfg.hold + " s";
+    $("fishIn").value = cfg.fish; $("fishVal").textContent = cfg.fish + (cfg.fish === 1 ? " Minute" : " Minuten");
     $("markY").style.left = cfg.yellow + "%"; $("markR").style.left = cfg.red + "%";
   }
   $("yellowIn").addEventListener("input", (e) => {
@@ -223,6 +273,7 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
     renderCfg(); save();
   });
   $("holdIn").addEventListener("input", (e) => { cfg.hold = +e.target.value; renderCfg(); save(); });
+  $("fishIn").addEventListener("input", (e) => { cfg.fish = +e.target.value; renderCfg(); save(); });
   $("resetBtn").addEventListener("click", () => { cfg = { ...DEFAULTS }; renderCfg(); save(); });
 
   function toggleSheet(open) {
@@ -343,6 +394,279 @@ input[type=range] { width: 100%; height: 44px; accent-color: var(--fg); }
         : canFs.call(root);
       if (p && p.catch) p.catch(() => { fsBtn.hidden = true; });
     } catch (e) { fsBtn.hidden = true; }
+  });
+
+  // ===== Aquarium =====
+  // Logik läuft 4x pro Sekunde, gezeichnet wird nur bei sichtbarem Aquarium mit ca. 30 Bildern pro Sekunde.
+  const AQ_KEY = "laerm-aquarium-v1";
+  const MAX_FISH = 16;
+  const RED_REPEAT = 10000; // ms: bei anhaltendem Rot schwimmt alle 10 s ein weiterer Fisch weg
+  // Arten je Größenstufe: L = Länge relativ zur Beckenhöhe, h = Körperhöhe relativ zur Länge
+  const SPECIES = [
+    [ // klein
+      { body: "#38bdf8", belly: "#e0f2fe", stripe: "#ef4444", tail: "#38bdf8", L: .085, h: .34, sp: .11 },
+      { body: "#fb923c", belly: "#fed7aa", tail: "#f472b6", L: .08, h: .38, sp: .12, bigTail: true },
+      { body: "#fde047", belly: "#fef9c3", tail: "#facc15", L: .075, h: .42, sp: .12 }
+    ],
+    [ // mittel
+      { body: "#f97316", belly: "#fdba74", bands: "#ffffff", tail: "#f97316", L: .13, h: .46, sp: .085 },
+      { body: "#2dd4bf", belly: "#ccfbf1", tail: "#0f766e", L: .13, h: .4, sp: .09 },
+      { body: "#a78bfa", belly: "#ede9fe", tail: "#facc15", L: .12, h: .44, sp: .09 }
+    ],
+    [ // groß
+      { body: "#e5e7eb", belly: "#fef08a", bands: "#1f2937", tail: "#e5e7eb", L: .17, h: .9, sp: .06, tall: true },
+      { body: "#2563eb", belly: "#93c5fd", tail: "#facc15", L: .19, h: .5, sp: .065 }
+    ],
+    [ // sehr groß
+      { body: "#b45309", belly: "#fcd34d", spots: "#78350f", tail: "#92400e", L: .27, h: .42, sp: .045 },
+      { body: "#facc15", belly: "#fef9c3", spots: "#a16207", tail: "#eab308", L: .22, h: .78, sp: .04 }
+    ]
+  ];
+  const tierOf = (i) => (i < 4 ? 0 : i < 8 ? 1 : i < 12 ? 2 : 3);
+  const speciesFor = (i) => { const t = SPECIES[tierOf(i)]; return [tierOf(i), (i * 7 + 3) % t.length]; };
+
+  let aq = { n: 0, progress: 0 };
+  try { Object.assign(aq, JSON.parse(localStorage.getItem(AQ_KEY) || "{}")); } catch (e) {}
+  aq.n = Math.max(0, Math.min(MAX_FISH, aq.n | 0));
+  const aqSave = () => { try { localStorage.setItem(AQ_KEY, JSON.stringify(aq)); } catch (e) {} };
+
+  const tank = $("tank"), cv = $("tankCv"), stage = document.querySelector(".stage");
+  const g = cv.getContext("2d", { alpha: false });
+  let W = 0, H = 0, B = 0, DPR = 1, bg = null, sprites = {}, fish = [], bubbles = [];
+  let tankOn = false, raf = 0, lastT = 0;
+
+  function makeSprite(sp) {
+    const L = sp.L * B, bh = L * sp.h;
+    const pad = Math.ceil(L * 0.25);
+    const c = document.createElement("canvas");
+    c.width = Math.ceil((L + pad * 2) * DPR); c.height = Math.ceil((bh * (sp.tall ? 1.9 : 1.5) + pad * 2) * DPR);
+    const x = c.getContext("2d");
+    x.scale(DPR, DPR);
+    const cx = (L + pad * 2) / 2 + L * 0.05, cy = c.height / DPR / 2;
+    x.translate(cx, cy);
+    // Rückenflosse und Bauchflosse
+    x.fillStyle = sp.tail;
+    x.beginPath();
+    if (sp.tall) {
+      x.moveTo(-L * .1, -bh * .35); x.lineTo(-L * .25, -bh * .95); x.lineTo(L * .12, -bh * .4); x.closePath();
+      x.moveTo(-L * .1, bh * .35); x.lineTo(-L * .25, bh * .95); x.lineTo(L * .12, bh * .4); x.closePath();
+    } else {
+      x.moveTo(-L * .2, -bh * .38); x.quadraticCurveTo(-L * .02, -bh * .85, L * .12, -bh * .4); x.closePath();
+    }
+    x.fill();
+    // Körper
+    x.beginPath(); x.ellipse(0, 0, L / 2, bh / 2, 0, 0, Math.PI * 2);
+    const grd = x.createLinearGradient(0, -bh / 2, 0, bh / 2);
+    grd.addColorStop(0, sp.body); grd.addColorStop(.55, sp.body); grd.addColorStop(1, sp.belly);
+    x.fillStyle = grd; x.fill();
+    x.save(); x.clip();
+    if (sp.stripe) { x.fillStyle = sp.stripe; x.fillRect(-L / 2, bh * .02, L * .75, bh * .2); }
+    if (sp.bands) {
+      x.fillStyle = sp.bands;
+      for (const bx of sp.tall ? [-.22, 0, .2] : [-.12, .2]) x.fillRect(L * bx - L * .04, -bh, L * .08, bh * 2);
+    }
+    if (sp.spots) {
+      x.fillStyle = sp.spots;
+      for (let k = 0; k < 14; k++) {
+        const a = k * 2.399, r = Math.sqrt(k / 14) * .42;
+        x.beginPath(); x.arc(Math.cos(a) * r * L * .8, Math.sin(a) * r * bh * .8, L * .022, 0, Math.PI * 2); x.fill();
+      }
+    }
+    x.restore();
+    // Auge
+    const ex = L * .3, ey = -bh * .1, er = Math.max(2.5, L * .055);
+    x.fillStyle = "#fff"; x.beginPath(); x.arc(ex, ey, er, 0, Math.PI * 2); x.fill();
+    x.fillStyle = "#111"; x.beginPath(); x.arc(ex + er * .25, ey, er * .55, 0, Math.PI * 2); x.fill();
+    return { c, cx: cx * DPR, cy: cy * DPR, L, bh };
+  }
+
+  function makeBackground() {
+    const c = document.createElement("canvas");
+    c.width = Math.round(W * DPR); c.height = Math.round(H * DPR);
+    const x = c.getContext("2d");
+    x.scale(DPR, DPR);
+    const w = x.createLinearGradient(0, 0, 0, H);
+    w.addColorStop(0, "#0e6b94"); w.addColorStop(.6, "#0a4a6e"); w.addColorStop(1, "#06283f");
+    x.fillStyle = w; x.fillRect(0, 0, W, H);
+    // Lichtstrahlen
+    x.fillStyle = "rgba(255,255,255,.05)";
+    for (const [a, b] of [[.12, .2], [.38, .45], [.62, .7], [.85, .9]]) {
+      x.beginPath(); x.moveTo(W * a, 0); x.lineTo(W * b, 0); x.lineTo(W * (b + .12), H); x.lineTo(W * (a + .02), H); x.closePath(); x.fill();
+    }
+    // Sand
+    const sandY = H * .86;
+    x.fillStyle = "#c9ad7c";
+    x.beginPath(); x.moveTo(0, H);
+    for (let i = 0; i <= 20; i++) x.lineTo(W * i / 20, sandY + Math.sin(i * 1.3) * H * .015);
+    x.lineTo(W, H); x.closePath(); x.fill();
+    x.fillStyle = "#b39566";
+    for (let i = 0; i < 60; i++) { x.beginPath(); x.arc((i * 97.13) % W, sandY + H * .03 + ((i * 53.7) % (H * .1)), 1.6, 0, Math.PI * 2); x.fill(); }
+    // Steine
+    x.fillStyle = "#5b6470";
+    for (const [px, s] of [[.08, .07], [.15, .045], [.78, .09], [.88, .05]]) {
+      x.beginPath(); x.ellipse(W * px, sandY + H * .01, B * s * 1.3, B * s * .8, 0, Math.PI, 0); x.fill();
+    }
+    // Pflanzen
+    const plant = (px, hh, col) => {
+      x.strokeStyle = col; x.lineWidth = Math.max(4, B * .012); x.lineCap = "round";
+      for (let k = -2; k <= 2; k++) {
+        const bx = W * px + k * B * .018, top = sandY - H * hh * (1 - Math.abs(k) * .18);
+        x.beginPath(); x.moveTo(bx, sandY + H * .01);
+        x.bezierCurveTo(bx + k * B * .03, sandY - (sandY - top) * .4, bx - k * B * .02 + B * .03, sandY - (sandY - top) * .7, bx + k * B * .04, top);
+        x.stroke();
+      }
+    };
+    plant(.22, .42, "#15803d"); plant(.27, .3, "#16a34a");
+    plant(.7, .5, "#166534"); plant(.94, .35, "#15803d"); plant(.5, .2, "#22c55e");
+    return c;
+  }
+
+  function resize() {
+    const r = tank.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+    W = r.width; H = r.height; B = Math.min(H, W * .7); // Größenmaß, damit Fische hochkant nicht riesig werden
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    bg = makeBackground();
+    sprites = {};
+    SPECIES.forEach((t, ti) => t.forEach((sp, si) => { sprites[ti + "-" + si] = makeSprite(sp); }));
+    bubbles = [];
+    for (let i = 0; i < 12; i++) bubbles.push(newBubble(true));
+    fish.forEach((f) => { f.y = Math.min(f.y, H * .78); });
+  }
+  function newBubble(anywhere) {
+    const src = Math.random() < .5 ? .3 : .8;
+    return { x: W * src + (Math.random() - .5) * 20, y: anywhere ? Math.random() * H : H * .86, r: 2 + Math.random() * 4, v: 30 + Math.random() * 40, ph: Math.random() * 6 };
+  }
+
+  function makeFish(i, entering) {
+    const [ti, si] = speciesFor(i), sp = SPECIES[ti][si];
+    const dir = Math.random() < .5 ? 1 : -1;
+    const L = sp.L * B;
+    return {
+      i, key: ti + "-" + si, sp, dir, turn: dir,
+      x: entering ? (dir > 0 ? -L : W + L) : W * (.1 + Math.random() * .8),
+      y: H * (.15 + Math.random() * .6), ty: H * (.15 + Math.random() * .6),
+      ph: Math.random() * 6, leaving: false, speed: 1
+    };
+  }
+  function rebuildFish() { fish = []; for (let i = 0; i < aq.n; i++) fish.push(makeFish(i, false)); }
+
+  function drawTail(f, s, t) {
+    const L = s.L, bh = s.bh, sp = f.sp;
+    const wag = Math.sin(t * (sp.L < .1 ? 12 : 7) + f.ph) * bh * .18 * (f.leaving ? 1.6 : 1);
+    const tl = sp.bigTail ? .5 : .32, th = sp.bigTail ? .55 : .42;
+    g.fillStyle = sp.tail;
+    g.beginPath();
+    g.moveTo(-L * .42, 0);
+    g.lineTo(-L * (.42 + tl), -bh * th + wag);
+    g.quadraticCurveTo(-L * (.36 + tl * .7), wag * .5, -L * (.42 + tl), bh * th + wag);
+    g.closePath(); g.fill();
+  }
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (now - lastT < 31) return;                 // ca. 30 Bilder pro Sekunde reichen und schonen das Spiegeln
+    const dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
+    const t = now / 1000;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(bg, 0, 0);
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    // Blasen
+    g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 1.5;
+    for (const b of bubbles) {
+      b.y -= b.v * dt; if (b.y < -10) Object.assign(b, newBubble(false));
+      g.beginPath(); g.arc(b.x + Math.sin(t * 2 + b.ph) * 4, b.y, b.r, 0, Math.PI * 2); g.stroke();
+    }
+    // Fische
+    for (let k = fish.length - 1; k >= 0; k--) {
+      const f = fish[k], s = sprites[f.key];
+      const L = s.L;
+      const v = f.sp.sp * W * (f.leaving ? 3.2 : 1);
+      f.x += f.dir * v * dt;
+      if (!f.leaving) {
+        if (f.x > W - L * .7 && f.dir > 0 && f.x < W + L * .2) f.dir = -1;
+        else if (f.x < L * .7 && f.dir < 0 && f.x > -L * .2) f.dir = 1;
+        if (Math.abs(f.y - f.ty) < 4) f.ty = H * (.12 + Math.random() * .64);
+        f.y += Math.sign(f.ty - f.y) * Math.min(Math.abs(f.ty - f.y), H * .03 * dt);
+      } else if (f.x < -L * 1.5 || f.x > W + L * 1.5) { fish.splice(k, 1); continue; }
+      f.turn += (f.dir - f.turn) * Math.min(1, dt * 5);
+      const y = f.y + Math.sin(t * 1.3 + f.ph) * H * .012;
+      g.setTransform(DPR * f.turn, 0, 0, DPR, f.x * DPR, y * DPR);
+      drawTail(f, s, t);
+      g.setTransform(f.turn, 0, 0, 1, f.x * DPR, y * DPR);
+      g.drawImage(s.c, -s.cx, -s.cy);
+    }
+  }
+
+  function setTank(on) {
+    tankOn = on;
+    tank.hidden = !on; stage.hidden = on;
+    $("viewBtn").textContent = on ? "Ampel" : "Aquarium";
+    cancelAnimationFrame(raf);
+    if (on) { resize(); rebuildFish(); aqHud(); lastT = 0; raf = requestAnimationFrame(frame); }
+  }
+  $("viewBtn").addEventListener("click", () => setTank(!tankOn));
+  if ("ResizeObserver" in window) new ResizeObserver(() => { if (tankOn) resize(); }).observe(tank);
+  document.addEventListener("visibilitychange", () => {
+    cancelAnimationFrame(raf);
+    if (tankOn && document.visibilityState === "visible") { lastT = 0; raf = requestAnimationFrame(frame); }
+  });
+
+  let popTimer = 0;
+  function pop(text, bad) {
+    const el = $("aqPop"); el.textContent = text; el.classList.toggle("bad", !!bad); el.hidden = false;
+    clearTimeout(popTimer); popTimer = setTimeout(() => { el.hidden = true; }, 2500);
+  }
+  function addFish() {
+    if (aq.n >= MAX_FISH) return;
+    if (tankOn) fish.push(makeFish(aq.n, true));
+    aq.n++; aqSave();
+    pop(aq.n >= MAX_FISH ? "Das Aquarium ist voll. Super!" : "Ein neuer Fisch!");
+  }
+  function removeFish() {
+    if (aq.n <= 0) return;
+    aq.n--; aqSave();
+    if (tankOn) {
+      for (let k = fish.length - 1; k >= 0; k--) {
+        const f = fish[k];
+        if (!f.leaving) { f.leaving = true; f.dir = f.x < W / 2 ? -1 : 1; break; }
+      }
+    }
+    pop("Zu laut! Ein Fisch schwimmt weg.", true);
+  }
+  function aqHud() {
+    $("aqCount").textContent = aq.n === 1 ? "1 Fisch" : aq.n + " Fische";
+    $("aqDot").dataset.s = shown || "";
+    const total = cfg.fish * 60000;
+    const left = Math.max(0, total - aq.progress);
+    const m = Math.floor(left / 60000), sec = Math.ceil((left % 60000) / 1000);
+    const mm = sec === 60 ? m + 1 : m, ss = sec === 60 ? 0 : sec;
+    $("aqNext").textContent = aq.n >= MAX_FISH ? "Aquarium voll"
+      : mode !== "mic" ? "Nächster Fisch: angehalten"
+      : "Nächster Fisch in " + mm + ":" + String(ss).padStart(2, "0") + (shown === "yellow" ? " (Pause)" : "");
+    $("aqBar").style.transform = "scaleX(" + Math.min(1, aq.progress / total).toFixed(3) + ")";
+    $("aqMsg").hidden = mode === "mic";
+  }
+
+  let redSince = 0, lastTick = performance.now(), saveIn = 0;
+  onShow = (s) => {
+    if (s === "red" && mode === "mic") { removeFish(); aq.progress = 0; redSince = performance.now(); }
+    if (tankOn) aqHud();
+  };
+  setInterval(() => {
+    const now = performance.now(), dt = now - lastTick; lastTick = now;
+    if (mode === "mic") {
+      if (shown === "green" && aq.n < MAX_FISH) {
+        aq.progress += dt;
+        if (aq.progress >= cfg.fish * 60000) { aq.progress = 0; addFish(); }
+      } else if (shown === "red" && now - redSince >= RED_REPEAT) { redSince = now; removeFish(); }
+      if ((saveIn += dt) > 5000) { saveIn = 0; aqSave(); }
+    }
+    if (tankOn) aqHud();
+  }, 250);
+  $("aqReset").addEventListener("click", () => {
+    aq = { n: 0, progress: 0 }; aqSave(); fish = []; if (tankOn) aqHud();
   });
 
   renderCfg();
