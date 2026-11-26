@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Glücksrad</title>
+<link rel="stylesheet" href="../schrift/schrift.css">
+<link rel="stylesheet" href="../gemeinsam/zurueck.css">
+<style>
+/* Rad links, Einträge rechts (ausblendbar). Das Rad wird einmal auf ein Canvas gemalt
+   und beim Drehen nur per CSS-Transform gedreht: flüssig auch beim AirPlay-Spiegeln. */
+:root {
+  --bg: #0f1216;
+  --panel: #1a1f26;
+  --line: #2c333d;
+  --fg: #f3f5f7;
+  --muted: #9aa4b1;
+  --yellow: #facc15;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 16px;
+  overflow: hidden; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.app {
+  height: 100%; display: flex; gap: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.wheelbox { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+.wheel { position: relative; cursor: pointer; -webkit-user-select: none; user-select: none; }
+.wheel canvas { display: block; width: 100%; height: 100%; border-radius: 50%; will-change: transform; transform: rotate(0deg); }
+/* Zeiger oben, zeigt nach unten ins Rad */
+.pointer {
+  position: absolute; left: 50%; top: -6px; width: 0; height: 0; transform: translateX(-50%);
+  border-left: 22px solid transparent; border-right: 22px solid transparent; border-top: 44px solid var(--fg);
+  filter: drop-shadow(0 2px 0 #000);
+}
+.hub {
+  position: absolute; left: 50%; top: 50%; width: 15%; height: 15%; transform: translate(-50%, -50%);
+  border-radius: 50%; background: var(--bg); border: 4px solid var(--fg);
+}
+.empty { color: var(--muted); font-size: clamp(20px, 3vw, 30px); text-align: center; padding: 20px; max-width: 520px; line-height: 1.4; }
+
+.bar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+button.btn {
+  font: inherit; font-size: 20px; font-weight: 700; color: var(--fg);
+  background: var(--panel); border: 2px solid var(--line); border-radius: 14px;
+  min-height: 56px; min-width: 64px; padding: 0 20px; cursor: pointer;
+}
+button.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); min-width: 180px; }
+button.btn[aria-pressed="true"] { border-color: var(--fg); }
+button.btn:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+button.btn:disabled { opacity: .4; }
+button.btn.small { font-size: 17px; min-height: 48px; padding: 0 14px; }
+button.btn.warn { border-color: #ef4444; color: #fecaca; }
+
+/* Einträge-Spalte */
+.side {
+  width: min(380px, 38vw); display: flex; flex-direction: column; gap: 10px;
+  background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: 14px;
+}
+.side h2 { margin: 0; font-size: 20px; }
+.row { display: flex; gap: 8px; align-items: center; }
+select, textarea, input[type=text] {
+  font: inherit; color: var(--fg); background: var(--bg); border: 2px solid var(--line); border-radius: 12px;
+}
+input[type=text] { flex: 1; min-width: 0; min-height: 48px; font-size: 18px; padding: 0 10px; }
+select { flex: 1; min-width: 0; min-height: 48px; font-size: 18px; padding: 0 10px; }
+textarea { flex: 1; min-height: 120px; width: 100%; resize: none; font-size: 19px; line-height: 1.45; padding: 10px 12px; }
+select:focus-visible, textarea:focus-visible, input[type=text]:focus-visible { outline: 3px solid var(--yellow); outline-offset: 1px; }
+.hint { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.4; }
+label.check { display: flex; gap: 10px; align-items: center; font-size: 18px; min-height: 44px; cursor: pointer; }
+label.check input { width: 26px; height: 26px; accent-color: var(--fg); }
+.drawn { font-size: 16px; color: var(--muted); line-height: 1.4; }
+.drawn button { margin-top: 6px; }
+
+/* Ergebnis groß über allem */
+.result {
+  position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4vh; background: rgba(15, 18, 22, .92); padding: 24px; text-align: center;
+}
+.result .name {
+  font-weight: 700; line-height: 1.05; margin: 0; max-width: 100%; overflow-wrap: anywhere;
+  font-size: min(16vw, 22vh); padding: .15em .4em; border-radius: 24px;
+}
+.result .bar { gap: 14px; }
+
+/* Während das Rad dreht: nur das Rad */
+body.spinning .side, body.spinning .zurueck, body.spinning .controls { visibility: hidden; }
+body.spinning .wheel { cursor: default; }
+
+/* Hochformat / schmal: Einträge unter dem Rad */
+@media (max-width: 760px), (orientation: portrait) {
+  .app { flex-direction: column; overflow-y: auto; }
+  .stage { flex: none; height: 78vh; }
+  .side { width: 100%; }
+  textarea { min-height: 220px; }
+  body.spinning .app { overflow: hidden; }
+}
+@media (max-height: 560px) and (orientation: landscape) {
+  button.btn { min-height: 48px; font-size: 18px; padding: 0 14px; }
+}
+</style>
+</head>
+<body>
+<a class="zurueck" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
+<div class="app">
+  <main class="stage">
+    <div class="wheelbox" id="wheelbox">
+      <div class="wheel" id="wheel" role="button" tabindex="0" aria-label="Rad drehen">
+        <canvas id="cv"></canvas>
+        <div class="hub" aria-hidden="true"></div>
+        <div class="pointer" aria-hidden="true"></div>
+      </div>
+      <p class="empty" id="empty" hidden>Trag rechts mindestens zwei Einträge ein, zum Beispiel Namen oder Aufgaben.</p>
+    </div>
+    <nav class="bar controls">
+      <button class="btn primary" id="spinBtn">Drehen</button>
+      <button class="btn" id="sideBtn" aria-pressed="true">Einträge</button>
+      <button class="btn" id="soundBtn" aria-pressed="true">Ton an</button>
+      <button class="btn" id="fsBtn">Vollbild</button>
+    </nav>
+  </main>
+
+  <aside class="side" id="side">
+    <div class="row">
+      <select id="listSel" aria-label="Liste wählen"></select>
+      <button class="btn small" id="newBtn" aria-label="Neue Liste">+ Neu</button>
+    </div>
+    <div class="row">
+      <input id="nameIn" type="text" aria-label="Name der Liste" placeholder="Name der Liste" autocomplete="off">
+      <button class="btn small" id="delBtn">Löschen</button>
+    </div>
+    <textarea id="items" spellcheck="false" autocapitalize="words" aria-label="Einträge, einer pro Zeile"></textarea>
+    <p class="hint">Ein Eintrag pro Zeile. Bleibt nur auf diesem Gerät gespeichert.</p>
+    <label class="check"><input type="checkbox" id="autoRm"> Gezogene automatisch entfernen</label>
+    <div class="drawn" id="drawn" hidden></div>
+  </aside>
+</div>
+
+<div class="result" id="result" hidden>
+  <p class="name" id="resName"></p>
+  <div class="bar">
+    <button class="btn" id="rmBtn">Aus dem Rad nehmen</button>
+    <button class="btn primary" id="againBtn">Nochmal drehen</button>
+    <button class="btn" id="closeBtn">Schließen</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const KEY = "gluecksrad-v1";
+  const $ = id => document.getElementById(id);
+  // Gut unterscheidbare, kräftige Farben. Text je nach Helligkeit schwarz oder weiß.
+  const COLORS = ["#ef4444", "#3b82f6", "#facc15", "#22c55e", "#a855f7", "#f97316", "#06b6d4", "#ec4899", "#84cc16", "#6366f1"];
+  const DARK_TEXT = new Set(["#facc15", "#22c55e", "#f97316", "#06b6d4", "#84cc16"]);
+
+  const BEISPIEL = ["Anna", "Ben", "Can", "Dilara", "Emil", "Fiona", "Greta", "Hamza"];
+  let st = { lists: [{ name: "Beispiel", items: BEISPIEL.slice(), drawn: [] }], cur: 0, autoRm: false, sound: true, side: true };
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (s && Array.isArray(s.lists) && s.lists.length) st = Object.assign(st, s);
+  } catch (e) {}
+  if (st.cur >= st.lists.length) st.cur = 0;
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+  const list = () => st.lists[st.cur];
+  const items = () => list().items;
+
+  const wheel = $("wheel"), cv = $("cv"), ctx = cv.getContext("2d");
+  let rot = 0;           // aktuelle Drehung in Grad (im Uhrzeigersinn)
+  let spinning = false;
+  let pendingIdx = -1;   // zuletzt gezogener Eintrag
+
+  // ---------- Rad malen (nur bei Änderung, nicht pro Frame) ----------
+  function fitText(text, maxW, size) {
+    ctx.font = `700 ${size}px ${getComputedStyle(document.body).fontFamily}`;
+    if (ctx.measureText(text).width <= maxW) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+    return t + "…";
+  }
+  function draw() {
+    const box = $("wheelbox");
+    const n = items().length;
+    $("empty").hidden = n >= 2;
+    wheel.hidden = n < 2;
+    $("spinBtn").disabled = n < 2;
+    if (n < 2) return;
+    const size = Math.max(160, Math.floor(Math.min(box.clientWidth, box.clientHeight) - 8));
+    wheel.style.width = wheel.style.height = size + "px";
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = cv.height = Math.round(size * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const r = size / 2, seg = 2 * Math.PI / n;
+    // Farben so verteilen, dass erstes und letztes Feld nicht gleich sind
+    const colorOf = i => {
+      let c = COLORS[i % COLORS.length];
+      if (i === n - 1 && n > 1 && c === COLORS[0]) c = COLORS[(i + 1) % COLORS.length];
+      return c;
+    };
+    ctx.clearRect(0, 0, size, size);
+    for (let i = 0; i < n; i++) {
+      const a0 = -Math.PI / 2 + i * seg, a1 = a0 + seg;
+      ctx.beginPath(); ctx.moveTo(r, r); ctx.arc(r, r, r, a0, a1); ctx.closePath();
+      ctx.fillStyle = colorOf(i); ctx.fill();
+      ctx.lineWidth = Math.max(1.5, size / 300); ctx.strokeStyle = "#0f1216"; ctx.stroke();
+    }
+    // Beschriftung entlang des Radius, von außen nach innen lesbar
+    const fs = Math.max(13, Math.min(size / 13, (2 * Math.PI * r * 0.62 / n) * 0.62));
+    const maxW = r * 0.78 - r * 0.12;
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let i = 0; i < n; i++) {
+      const mid = -Math.PI / 2 + (i + .5) * seg;
+      ctx.save(); ctx.translate(r, r); ctx.rotate(mid);
+      ctx.fillStyle = DARK_TEXT.has(colorOf(i)) ? "#0f1216" : "#ffffff";
+      ctx.fillText(fitText(items()[i], maxW, fs), r * 0.9, 0);
+      ctx.restore();
+    }
+    ctx.beginPath(); ctx.arc(r, r, r - 2, 0, 2 * Math.PI);
+    ctx.lineWidth = 4; ctx.strokeStyle = "#f3f5f7"; ctx.stroke();
+    wheel._colorOf = colorOf;
+  }
+
+  // ---------- Ton: kurzer Klick pro Feld, sehr leise ----------
+  let ac = null;
+  function tick() {
+    if (!st.sound) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+      o.type = "square"; o.frequency.value = 1400;
+      g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 0.035);
+    } catch (e) {}
+  }
+  function fanfare() {
+    if (!st.sound || !ac) return;
+    const t = ac.currentTime;
+    [523, 659, 784].forEach((f, k) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = "triangle"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + k * 0.09);
+      g.gain.exponentialRampToValueAtTime(0.25, t + k * 0.09 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + k * 0.09 + 0.35);
+      o.connect(g).connect(ac.destination); o.start(t + k * 0.09); o.stop(t + k * 0.09 + 0.4);
+    });
+  }
+
+  // ---------- Drehen ----------
+  function randInt(max) {
+    const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % max;
+  }
+  function spin() {
+    const n = items().length;
+    if (spinning || n < 2) return;
+    $("result").hidden = true;
+    const idx = randInt(n), seg = 360 / n;
+    // Zielwinkel: Mitte von Feld idx (mit etwas Zufall im Feld) unter dem Zeiger
+    const inSeg = seg * (0.15 + 0.7 * (randInt(1000) / 1000));
+    const targetMod = (360 - (idx * seg + inSeg)) % 360;
+    const start = rot;
+    const base = start - (start % 360);
+    const turns = 5 + randInt(3);
+    const end = base + turns * 360 + targetMod;
+    const dur = 4200 + randInt(1200);
+    spinning = true; document.body.classList.add("spinning");
+    tick(); // AudioContext im Tipp-Ereignis freischalten (iPad)
+    const t0 = performance.now();
+    let lastSeg = Math.floor(start / seg);
+    const ease = t => 1 - Math.pow(1 - t, 4);
+    function frame(now) {
+      const t = Math.min(1, (now - t0) / dur);
+      rot = start + (end - start) * ease(t);
+      cv.style.transform = `rotate(${rot}deg)`;
+      const s = Math.floor(rot / seg);
+      if (s !== lastSeg) { lastSeg = s; tick(); }
+      if (t < 1) requestAnimationFrame(frame);
+      else done(idx);
+    }
+    requestAnimationFrame(frame);
+  }
+  function done(idx) {
+    rot = rot % 360; cv.style.transform = `rotate(${rot}deg)`;
+    spinning = false; document.body.classList.remove("spinning");
+    pendingIdx = idx;
+    const name = items()[idx];
+    const nm = $("resName");
+    nm.textContent = name;
+    const c = wheel._colorOf(idx);
+    nm.style.background = c; nm.style.color = DARK_TEXT.has(c) ? "#0f1216" : "#ffffff";
+    $("rmBtn").hidden = st.autoRm;
+    $("result").hidden = false;
+    fanfare();
+    if (st.autoRm) removeDrawn();
+    $("againBtn").focus();
+  }
+  function removeDrawn() {
+    if (pendingIdx < 0) return;
+    const L = list();
+    const [x] = L.items.splice(pendingIdx, 1);
+    L.drawn.push(x); pendingIdx = -1;
+    save(); syncText(); draw(); renderDrawn();
+  }
+  function closeResult() { $("result").hidden = true; pendingIdx = -1; }
+
+  // ---------- Listen und Eingabe ----------
+  function syncText() { $("items").value = items().join("\n"); }
+  function renderLists() {
+    const sel = $("listSel"); sel.innerHTML = "";
+    st.lists.forEach((l, i) => {
+      const o = document.createElement("option"); o.value = i; o.textContent = l.name; sel.appendChild(o);
+    });
+    sel.value = st.cur;
+    $("nameIn").value = list().name;
+    $("delBtn").disabled = st.lists.length < 2;
+  }
+  function renderDrawn() {
+    const d = list().drawn, el = $("drawn");
+    el.hidden = !d.length;
+    if (!d.length) return;
+    el.innerHTML = "";
+    const p = document.createElement("div");
+    p.textContent = `Schon gezogen (${d.length}): ${d.join(", ")}`;
+    const b = document.createElement("button");
+    b.className = "btn small"; b.textContent = "Alle zurück ins Rad";
+    b.onclick = () => { const L = list(); L.items = L.items.concat(L.drawn); L.drawn = []; save(); syncText(); draw(); renderDrawn(); };
+    el.append(p, b);
+  }
+  function showAll() { renderLists(); syncText(); renderDrawn(); draw(); }
+
+  $("items").addEventListener("input", () => {
+    list().items = $("items").value.split("\n").map(s => s.trim()).filter(Boolean);
+    save(); draw();
+  });
+  $("listSel").addEventListener("change", e => { st.cur = +e.target.value; save(); showAll(); });
+  $("newBtn").onclick = () => {
+    st.lists.push({ name: "Liste " + (st.lists.length + 1), items: [], drawn: [] });
+    st.cur = st.lists.length - 1; save(); showAll();
+    $("nameIn").focus(); $("nameIn").select();
+  };
+  $("nameIn").addEventListener("input", e => {
+    list().name = e.target.value.trim() || "Ohne Namen"; save();
+    $("listSel").options[st.cur].textContent = list().name;
+  });
+  // Löschen mit zweitem Tippen bestätigen (keine Browser-Dialoge)
+  let delArmed = null;
+  const disarm = () => { clearTimeout(delArmed); delArmed = null; $("delBtn").textContent = "Löschen"; $("delBtn").classList.remove("warn"); };
+  $("delBtn").onclick = () => {
+    if (st.lists.length < 2) return;
+    if (!delArmed) {
+      $("delBtn").textContent = "Wirklich?"; $("delBtn").classList.add("warn");
+      delArmed = setTimeout(disarm, 3000); return;
+    }
+    disarm(); st.lists.splice(st.cur, 1); st.cur = 0; save(); showAll();
+  };
+  $("autoRm").checked = st.autoRm;
+  $("autoRm").onchange = e => { st.autoRm = e.target.checked; save(); };
+
+  // ---------- Knöpfe ----------
+  wheel.addEventListener("click", spin);
+  wheel.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); spin(); } });
+  $("spinBtn").onclick = spin;
+  $("againBtn").onclick = () => { closeResult(); spin(); };
+  $("rmBtn").onclick = () => { removeDrawn(); closeResult(); };
+  $("closeBtn").onclick = closeResult;
+  $("result").addEventListener("click", e => { if (e.target === $("result")) closeResult(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !$("result").hidden) closeResult();
+  });
+
+  const setSound = () => { $("soundBtn").setAttribute("aria-pressed", st.sound); $("soundBtn").textContent = st.sound ? "Ton an" : "Ton aus"; };
+  $("soundBtn").onclick = () => { st.sound = !st.sound; save(); setSound(); };
+  setSound();
+
+  const setSide = () => { $("side").hidden = !st.side; $("sideBtn").setAttribute("aria-pressed", st.side); requestAnimationFrame(draw); };
+  $("sideBtn").onclick = () => { st.side = !st.side; save(); setSide(); };
+  setSide();
+
+  const fsEl = document.documentElement;
+  const canFs = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
+  if (!canFs) $("fsBtn").hidden = true;
+  $("fsBtn").onclick = () => {
+    const inFs = document.fullscreenElement || document.webkitFullscreenElement;
+    if (inFs) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else canFs.call(fsEl);
+  };
+
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (!spinning) draw(); }, 120); });
+  showAll();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!spinning) draw(); });
+})();
+</script>
+</body>
+</html>
