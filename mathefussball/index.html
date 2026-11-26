@@ -48,7 +48,8 @@ body {
 .kopf { grid-area: kopf; display: flex; align-items: center; gap: 12px; min-height: 56px; }
 .stand { flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px; font-weight: 700;
   font-variant-numeric: tabular-nums; min-width: 0; }
-.stand .name { font-size: clamp(16px, 2.6vw, 26px); padding: 4px 12px; border-radius: 10px; color: #fff; white-space: nowrap; }
+.stand .name { font-size: clamp(16px, 2.6vw, 26px); padding: 3px 12px 5px; border-radius: 10px; color: #fff; white-space: nowrap; text-align: center; line-height: 1.1; }
+.stand .name small { display: block; font-size: .55em; font-weight: 400; text-transform: uppercase; letter-spacing: .08em; opacity: .9; }
 .stand .tore { font-size: clamp(32px, 5.5vw, 56px); line-height: 1; min-width: 1ch; text-align: center; }
 .stand .doppelpunkt { font-size: clamp(28px, 4.5vw, 46px); color: var(--muted); line-height: 1; }
 .F { background: var(--fenster); } .T { background: var(--tuer); }
@@ -400,8 +401,8 @@ button.btn.gross { font-size: clamp(22px, 2.6vw, 30px); min-height: 72px; width:
   }
   function standAnzeigen() {
     const L = links(), R = rechts();
-    $("nameL").textContent = NAME[L]; $("nameL").className = "name " + L;
-    $("nameR").textContent = NAME[R]; $("nameR").className = "name " + R;
+    $("nameL").innerHTML = `<small>Team</small>${NAME[L]}`; $("nameL").className = "name " + L;
+    $("nameR").innerHTML = `<small>Team</small>${NAME[R]}`; $("nameR").className = "name " + R;
     $("toreL").textContent = st.tore[L]; $("toreR").textContent = st.tore[R];
     $("rueck").disabled = !st.verlauf.length;
     for (const [id, t] of [["punktL", L], ["punktR", R]]) {
