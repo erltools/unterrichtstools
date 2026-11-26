@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Wortwolke</title>
 <link rel="stylesheet" href="../schrift/schrift.css">
+<link rel="stylesheet" href="../gemeinsam/zurueck.css">
 <style>
 /* Wortwolke: Lehrkraft-Ansicht (ohne ?r=) und Schüler-Ansicht (mit ?r=CODE). Dunkel und kontrastreich für Beamer. */
 :root {
@@ -102,6 +103,7 @@ button.danger { background: #3a1416; border-color: #7f1d1d; color: #fecaca; }
 
 <!-- Lehrkraft: Start -->
 <section id="start" class="pad" hidden>
+  <a class="zurueck" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
   <div class="card">
     <h1>Wortwolke</h1>
     <p class="muted" style="margin:0;font-size:18px;line-height:1.5">Stelle eine Frage. Die Klasse scannt den QR-Code und schickt Wörter. Die Wolke wächst live. Es werden nur Wörter gespeichert, keine Namen. Nach 24 Stunden wird alles gelöscht.</p>
@@ -129,6 +131,7 @@ button.danger { background: #3a1416; border-color: #7f1d1d; color: #fecaca; }
 <!-- Lehrkraft: laufende Runde -->
 <section id="live" class="pad" hidden>
   <div class="top">
+    <a class="zurueck im-fluss" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
     <h2 id="qTitle"></h2>
   </div>
   <div class="body">
