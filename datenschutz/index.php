@@ -76,10 +76,13 @@
   <p>Eine geteilte Liste wird automatisch gelöscht, wenn sie 5 Jahre lang nicht mehr abgerufen wurde. Jeder Abruf startet diese Frist neu. Auf Wunsch wird eine Liste auch sofort gelöscht. Schreiben Sie dazu eine E-Mail mit dem Code an die oben genannte Adresse. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, das berechtigte Interesse ist die Bereitstellung der gewünschten Funktion.</p>
   <p>Bitte schreiben Sie keine Namen oder andere persönliche Angaben in Listen, die Sie teilen.</p>
 
-  <h2>7. Aufruf über GitHub Pages</h2>
+  <h2>7. Feedback-Formular</h2>
+  <p>Wenn Sie das Feedback-Formular abschicken, wird Ihre Nachricht mit dem gewählten Bereich und, falls angegeben, Ihrer E-Mail-Adresse als E-Mail an den Verantwortlichen geschickt. Auf dem Server wird die Nachricht nicht gespeichert. Gespeichert werden nur die Zeitpunkte der Sendungen der letzten Stunde, ohne Inhalt und ohne IP-Adresse, um die Zahl der Nachrichten zu begrenzen. Die E-Mail wird gelöscht, sobald Ihr Anliegen erledigt ist. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, das berechtigte Interesse ist die Beantwortung Ihrer Rückmeldung.</p>
+
+  <h2>8. Aufruf über GitHub Pages</h2>
   <p>Eine Vorschau der Seite ist zusätzlich unter erltools.github.io erreichbar. Wer diese Adresse aufruft, nutzt die Server von GitHub Inc. (USA). Dabei gilt die Datenschutzerklärung von GitHub, und es kann eine Übermittlung in die USA stattfinden. Für den Unterricht nutzen Sie bitte die Hauptadresse klassenkit.de.</p>
 
-  <h2>8. Ihre Rechte</h2>
+  <h2>9. Ihre Rechte</h2>
   <p>Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Widerspruch gegen die Verarbeitung (Art. 21). Wenden Sie sich dafür an die oben genannte E-Mail-Adresse.</p>
   <p>Sie können sich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren, zum Beispiel bei <?= k_text('aufsicht', 'der oder dem Landesbeauftragten für Datenschutz') ?>.</p>
 
