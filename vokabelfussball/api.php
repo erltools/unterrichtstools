@@ -16,6 +16,7 @@ header('X-Content-Type-Options: nosniff');
 const DIR = __DIR__ . '/listen';
 const MAX_ALTER = 5 * 365 * 86400;   // 5 Jahre ohne Abruf
 const MAX_LISTEN = 20000;            // Schutz vor Missbrauch
+const MAX_GESAMT = 1024 * 1024 * 1024; // höchstens 1 GB für alle Listen zusammen (Webspace: 25 GB)
 const MAX_PAARE = 500;
 const MAX_WORT = 80;
 const ZEICHEN = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // ohne 0/O und 1/I, 32 Zeichen
@@ -71,7 +72,10 @@ switch ($action) {
     }
 
     aufraeumen();
-    if (count(glob(DIR . '/*.json') ?: []) >= MAX_LISTEN) fail('Gerade können keine Listen geteilt werden. Bitte später erneut versuchen.', 503);
+    $dateien = glob(DIR . '/*.json') ?: [];
+    $gesamt = strlen($json);
+    foreach ($dateien as $f) $gesamt += (int)@filesize($f);
+    if (count($dateien) >= MAX_LISTEN || $gesamt > MAX_GESAMT) fail('Gerade können keine Listen geteilt werden. Bitte später erneut versuchen.', 503);
     $versuche = 0;
     do {
       $code = '';
