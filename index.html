@@ -76,16 +76,8 @@ footer a:hover, footer a:focus-visible { color:var(--fg); text-decoration:underl
       <p>Tische aufstellen, Sitzordnung würfeln, Streithähne trennen.</p>
     </a>
   </div>
-  <p class="feedback">Ideen, Wünsche oder einen Fehler gefunden? Schreiben Sie an <a class="mail" data-u="feedback" href="#">feedback [at] klassenkit.de</a></p>
-  <footer><a class="mail" data-u="feedback" href="#">Feedback</a><a href="impressum/">Impressum</a><a href="datenschutz/">Datenschutz</a></footer>
+  <p class="feedback">Ideen, Wünsche oder einen Fehler gefunden? <a href="feedback/">Hier Feedback geben</a></p>
+  <footer><a href="feedback/">Feedback</a><a href="impressum/">Impressum</a><a href="datenschutz/">Datenschutz</a></footer>
 </main>
-<script>
-// Adresse erst im Browser zusammensetzen, damit Adress-Sammler sie im Seitencode nicht finden.
-for (const a of document.querySelectorAll("a.mail")) {
-  const m = a.dataset.u + "\u0040" + ["klassenkit", "de"].join(".");
-  a.href = "mai" + "lto:" + m;
-  if (a.textContent.includes("[at]")) a.textContent = m;
-}
-</script>
 </body>
 </html>
