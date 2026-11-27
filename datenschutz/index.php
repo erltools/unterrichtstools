@@ -20,6 +20,7 @@
     <li>Keine Verbindungen zu fremden Diensten. Auch die Schrift liegt auf diesem Server.</li>
     <li>Namenslisten, Sitzpläne und Einstellungen bleiben nur auf Ihrem Gerät.</li>
     <li>Nur Wortwolke, Abstimmung und Gruppen einteilen speichern Daten auf dem Server, ohne Namen, und löschen sie nach 24 Stunden.</li>
+    <li>Bei Vokabelfußball können Sie eine Vokabelliste mit einem Code teilen. Nur dann liegt diese Liste auf dem Server.</li>
   </ul>
 
   <h2>1. Verantwortlicher</h2>
@@ -49,6 +50,7 @@
     <li>Glücksrad: eingetragene Namen oder Aufgaben</li>
     <li>Sitzplan-Würfel: Klassen, Namen und Sitzpläne</li>
     <li>Mathefußball: Spielstand und Einstellungen</li>
+    <li>Vokabelfußball: Spielstand, Einstellungen und eigene Vokabellisten</li>
     <li>Wortwolke, Abstimmung und Gruppen einteilen: laufende Runde und eine zufällige Geräte-Kennung (siehe Abschnitt 5)</li>
     <li>Gruppen einteilen: zuletzt gewählte Anzahl, Plätze und Gruppennamen</li>
   </ul>
@@ -69,10 +71,15 @@
   <p>Namen und IP-Adressen werden in den Runden nicht gespeichert. Jede Runde wird nach 24 Stunden automatisch gelöscht, auf Wunsch der Lehrkraft auch sofort. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, das berechtigte Interesse ist die Bereitstellung der gewünschten Funktion.</p>
   <p>Bitte geben Sie in diesen Werkzeugen keine Namen oder andere persönliche Angaben ein, auch nicht als Gruppennamen.</p>
 
-  <h2>6. Aufruf über GitHub Pages</h2>
+  <h2>6. Vokabellisten teilen (Vokabelfußball)</h2>
+  <p>Wenn Sie bei Vokabelfußball auf „Liste teilen“ tippen, wird die Liste auf dem Server gespeichert und Sie erhalten einen fünfstelligen Code. Gespeichert werden nur der Name der Liste, die beiden Sprachen und die Wortpaare. Es werden keine Namen von Personen, keine IP-Adressen und keine Geräte-Kennungen zu der Liste gespeichert. Wer den Code kennt, kann eine Kopie der Liste laden.</p>
+  <p>Eine geteilte Liste wird automatisch gelöscht, wenn sie 5 Jahre lang nicht mehr abgerufen wurde. Jeder Abruf startet diese Frist neu. Auf Wunsch wird eine Liste auch sofort gelöscht. Schreiben Sie dazu eine E-Mail mit dem Code an die oben genannte Adresse. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, das berechtigte Interesse ist die Bereitstellung der gewünschten Funktion.</p>
+  <p>Bitte schreiben Sie keine Namen oder andere persönliche Angaben in Listen, die Sie teilen.</p>
+
+  <h2>7. Aufruf über GitHub Pages</h2>
   <p>Eine Vorschau der Seite ist zusätzlich unter erltools.github.io erreichbar. Wer diese Adresse aufruft, nutzt die Server von GitHub Inc. (USA). Dabei gilt die Datenschutzerklärung von GitHub, und es kann eine Übermittlung in die USA stattfinden. Für den Unterricht nutzen Sie bitte die Hauptadresse klassenkit.de.</p>
 
-  <h2>7. Ihre Rechte</h2>
+  <h2>8. Ihre Rechte</h2>
   <p>Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Widerspruch gegen die Verarbeitung (Art. 21). Wenden Sie sich dafür an die oben genannte E-Mail-Adresse.</p>
   <p>Sie können sich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren, zum Beispiel bei <?= k_text('aufsicht', 'der oder dem Landesbeauftragten für Datenschutz') ?>.</p>
 

@@ -140,6 +140,9 @@ textarea { min-height: 240px; resize: vertical; line-height: 1.45; font-size: 17
 .zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .zwei label { display: grid; gap: 6px; }
 .fehler { color: #fca5a5; }
+.code { margin: 0; text-align: center; font-weight: 700; font-size: clamp(48px, 12vw, 88px); letter-spacing: .18em; line-height: 1.1;
+  font-variant-numeric: tabular-nums; color: var(--gelb); -webkit-user-select: text; user-select: text; }
+input.codefeld { font-size: 32px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; text-align: center; }
 @media (max-width: 520px) { .teams, .zwei { grid-template-columns: 1fr; } .kopf .rechts .btn { padding: 0 10px; font-size: 16px; } }
 @media (prefers-reduced-motion: reduce) { .bahn { transition: none; } }
 </style>
@@ -236,8 +239,10 @@ textarea { min-height: 240px; resize: vertical; line-height: 1.45; font-size: 17
       <div class="wahl">
         <button class="btn" type="button" id="neueListe">+ Neue Liste</button>
         <button class="btn" type="button" id="listeBearbeiten">Liste bearbeiten</button>
+        <button class="btn" type="button" id="listeTeilen">Liste teilen</button>
+        <button class="btn" type="button" id="codeLaden">Liste mit Code laden</button>
       </div>
-      <p class="hinweis">Eigene Listen bleiben nur auf diesem Gerät gespeichert.</p>
+      <p class="hinweis">Eigene Listen bleiben auf diesem Gerät. Nur wenn Sie eine Liste teilen, wird sie mit einem Code auf dem Server gespeichert.</p>
     </div>
     <div class="feldgruppe">
       <span>Abfragen</span>
@@ -299,6 +304,30 @@ textarea { min-height: 240px; resize: vertical; line-height: 1.45; font-size: 17
       <div class="rechts">
         <button class="btn" type="button" id="eAbbrechen">Abbrechen</button>
         <button class="btn primaer" type="button" id="eSpeichern">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dialog" id="codeDialog" hidden>
+  <div class="karte" role="dialog" aria-modal="true" aria-labelledby="cTitel">
+    <h2 id="cTitel">Liste teilen</h2>
+    <div id="cTeilen" class="feldgruppe">
+      <p class="hinweis" id="cListe"></p>
+      <p class="code" id="cCode">·····</p>
+      <p class="hinweis">Wer diesen Code in Vokabelfußball unter <b>Liste mit Code laden</b> eingibt, bekommt eine Kopie der Liste. Änderungen an der Kopie ändern Ihre Liste nicht.</p>
+      <p class="hinweis">Die Liste bleibt gespeichert, bis sie <b>5 Jahre</b> lang nicht mehr abgerufen wurde. Bitte keine Namen von Schülerinnen und Schülern in geteilte Listen schreiben.</p>
+    </div>
+    <div id="cLaden" class="feldgruppe">
+      <label class="feldgruppe"><span>Code eingeben</span>
+        <input type="text" id="cEingabe" class="codefeld" maxlength="7" placeholder="z. B. K7M4P" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text"></label>
+    </div>
+    <p class="hinweis" id="cMeldung"></p>
+    <div class="fuss">
+      <div class="links"></div>
+      <div class="rechts">
+        <button class="btn" type="button" id="cSchliessen">Schließen</button>
+        <button class="btn primaer" type="button" id="cLos">Laden</button>
       </div>
     </div>
   </div>
@@ -638,6 +667,7 @@ zehn = dix`) }
       box.appendChild(b);
     }
     $("listeBearbeiten").textContent = istBeispiel(l) ? "Als eigene Liste kopieren" : "Liste bearbeiten";
+    $("listeTeilen").hidden = istBeispiel(l);
     const [hin, her] = $("richtung").children;
     hin.textContent = `${l.a} → ${l.b}`; her.textContent = `${l.b} → ${l.a}`;
     for (const b of $("richtung").children) b.setAttribute("aria-pressed", b.dataset.r === c.richtung);
@@ -707,6 +737,66 @@ zehn = dix`) }
     if (st.cfg.liste === bearbeite) st.cfg.liste = BEISPIELE[1].id;
     $("editor").hidden = true; aendern(() => {});
   };
+
+  // ---- Teilen per Code (nur Name, Sprachen und Wortpaare gehen an den Server) ----
+  const API = "api.php";
+  async function api(daten) {
+    if (window.VOKABEL_API) return window.VOKABEL_API(daten); // nur in der Vorschau
+    let res;
+    try {
+      res = daten.action === "laden"
+        ? await fetch(`${API}?action=laden&code=${encodeURIComponent(daten.code)}`, { cache: "no-store" })
+        : await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(daten) });
+    } catch (e) { throw new Error("Keine Verbindung zum Server. Bitte Internetverbindung prüfen."); }
+    let j = null; try { j = await res.json(); } catch (e) {}
+    if (!j || !j.ok) throw new Error((j && j.error) || "Der Server antwortet gerade nicht. Bitte später erneut versuchen.");
+    return j;
+  }
+  const inhalt = (l) => JSON.stringify([l.name, l.a, l.b, l.paare]);
+  let codeModus = "laden";
+  function codeDialog(modus) {
+    codeModus = modus;
+    $("cTitel").textContent = modus === "teilen" ? "Liste teilen" : "Liste mit Code laden";
+    $("cTeilen").hidden = modus !== "teilen"; $("cLaden").hidden = modus !== "laden";
+    $("cLos").hidden = modus !== "laden"; $("cLos").disabled = false;
+    $("cMeldung").textContent = ""; $("cMeldung").className = "hinweis";
+    $("codeDialog").hidden = false;
+    if (modus === "laden") { $("cEingabe").value = ""; setTimeout(() => $("cEingabe").focus(), 50); }
+  }
+  async function teilen() {
+    const l = liste();
+    codeDialog("teilen");
+    $("cListe").innerHTML = `<b>${esc(l.name)}</b> (${l.paare.length} Wörter)`;
+    if (l.code && l.codeStand === inhalt(l)) { $("cCode").textContent = l.code; return; }
+    $("cCode").textContent = "·····"; $("cMeldung").textContent = "Liste wird gespeichert …";
+    try {
+      const j = await api({ action: "teilen", name: l.name, a: l.a, b: l.b, paare: l.paare });
+      l.code = j.code; l.codeStand = inhalt(l); speichern();
+      $("cCode").textContent = j.code; $("cMeldung").textContent = "";
+    } catch (e) { $("cCode").textContent = "–"; $("cMeldung").textContent = e.message; $("cMeldung").className = "hinweis fehler"; }
+  }
+  async function laden() {
+    const code = $("cEingabe").value.toUpperCase().replace(/[\s-]/g, "");
+    if (code.length !== 5) { $("cMeldung").textContent = "Der Code hat 5 Zeichen."; $("cMeldung").className = "hinweis fehler"; return; }
+    $("cLos").disabled = true; $("cMeldung").textContent = "Liste wird geladen …"; $("cMeldung").className = "hinweis";
+    try {
+      const { liste: x } = await api({ action: "laden", code });
+      const daten = { name: x.name, a: x.a, b: x.b, paare: x.paare, code, codeStand: "" };
+      daten.codeStand = inhalt(daten);
+      const schon = st.eigene.find((e) => e.code === code);
+      if (schon) { Object.assign(schon, daten); st.cfg.liste = schon.id; }
+      else { const id = "e-" + Date.now().toString(36); st.eigene.push({ id, ...daten }); st.cfg.liste = id; }
+      st.wtopf = []; st.wliste = null;
+      $("codeDialog").hidden = true; aendern(() => {});
+    } catch (e) { $("cMeldung").textContent = e.message; $("cMeldung").className = "hinweis fehler"; }
+    $("cLos").disabled = false;
+  }
+  $("listeTeilen").onclick = teilen;
+  $("codeLaden").onclick = () => codeDialog("laden");
+  $("cLos").onclick = laden;
+  $("cEingabe").onkeydown = (e) => { if (e.key === "Enter") laden(); };
+  $("cEingabe").oninput = () => { $("cMeldung").textContent = ""; };
+  $("cSchliessen").onclick = () => { $("codeDialog").hidden = true; };
 
   $("ziehen").onclick = nummerZiehen;
   $("andere").onclick = nummerZiehen;
