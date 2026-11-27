@@ -14,6 +14,7 @@ Vorschau ohne Server-Funktionen: https://erltools.github.io/unterrichtstools/
 | Timer | `timer/` |
 | Glücksrad | `gluecksrad/` (Listen nur lokal im Browser) |
 | Mathefußball | `mathefussball/` |
+| Vokabelfußball | `vokabelfussball/` (Listen lokal im Browser; geteilte Listen per 5-stelligem Code in `vokabelfussball/listen/`, braucht PHP, Löschung nach 5 Jahren ohne Abruf) |
 | Sitzplan-Würfel | `sitzplan/` (Klassen und Pläne nur lokal im Browser) |
 
 Impressum und Datenschutzerklärung liegen in `impressum/` und `datenschutz/` (Stil: `gemeinsam/textseite.css`), verlinkt unten auf der Startseite. Name, Anschrift und E-Mail stehen absichtlich nicht im Repo: `gemeinsam/kontakt.php` liest sie aus `kontakt.php` eine Ebene über `httpdocs` auf dem Server. Fehlt die Datei, zeigen die Seiten gelbe Platzhalter. Auf GitHub Pages laufen diese beiden PHP-Seiten nicht. Neue Tools, die Daten auf dem Server speichern oder neue Gerätefunktionen nutzen, müssen in der Datenschutzerklärung ergänzt werden.
