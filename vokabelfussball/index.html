@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Vokabelfußball</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../schrift/schrift.css">
+<link rel="stylesheet" href="../gemeinsam/zurueck.css">
+<style>
+/* Wie Mathefußball, nur mit Vokabeln: Kopfzeile mit Spielstand, großes Spielfeld, daneben (quer) bzw. darunter (hoch) das Wort.
+   Dunkel und kontrastreich für Beamer. Bewegt wird nur der Ball (transform), sonst keine Animationen.
+   Vokabellisten liegen nur lokal im Browser (localStorage), nichts geht an einen Server. */
+:root {
+  --bg: #0f1216;
+  --panel: #1a1f26;
+  --line: #2c333d;
+  --fg: #f3f5f7;
+  --muted: #9aa4b1;
+  --fenster: #2563eb;
+  --tuer: #ea580c;
+  --gelb: #facc15;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 16px;
+  overflow: hidden; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+}
+.app {
+  height: 100%; box-sizing: border-box; display: grid; gap: 12px;
+  grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "kopf" "feld" "panel";
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-aspect-ratio: 5/4) {
+  .app { grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) clamp(300px, 36vw, 520px);
+    grid-template-areas: "kopf kopf" "feld panel"; }
+}
+
+/* Kopfzeile */
+.kopf { grid-area: kopf; display: flex; align-items: center; gap: 12px; min-height: 56px; }
+.stand { flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px; font-weight: 700;
+  font-variant-numeric: tabular-nums; min-width: 0; }
+.stand .name { font-size: clamp(16px, 2.6vw, 26px); padding: 3px 12px 5px; border-radius: 10px; color: #fff; white-space: nowrap; text-align: center; line-height: 1.1; }
+.stand .name small { display: block; font-size: .55em; font-weight: 400; text-transform: uppercase; letter-spacing: .08em; opacity: .9; }
+.stand .tore { font-size: clamp(32px, 5.5vw, 56px); line-height: 1; min-width: 1ch; text-align: center; }
+.stand .doppelpunkt { font-size: clamp(28px, 4.5vw, 46px); color: var(--muted); line-height: 1; }
+.F { background: var(--fenster); } .T { background: var(--tuer); }
+.kopf .rechts { display: flex; gap: 8px; }
+
+button.btn {
+  font: inherit; font-size: 18px; font-weight: 700; color: var(--fg); background: var(--panel);
+  border: 2px solid var(--line); border-radius: 14px; min-height: 48px; padding: 0 16px; cursor: pointer;
+}
+button.btn:focus-visible { outline: 3px solid var(--gelb); outline-offset: 2px; }
+button.btn:disabled { opacity: .35; }
+button.btn.primaer { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button.btn.gross { font-size: clamp(22px, 2.6vw, 30px); min-height: 72px; width: 100%; }
+button.btn.warn { color: #fca5a5; border-color: #7f1d1d; }
+
+/* Spielfeld */
+.feldbox { grid-area: feld; min-height: 0; container-type: size; display: grid; place-items: center; }
+.feld { position: relative; width: min(100cqw, 100cqh * 1050 / 680); aspect-ratio: 1050 / 680; max-width: 100%; }
+.feld > svg { display: block; width: 100%; height: 100%; border-radius: 12px; }
+.feld.auswahl .spieler g { opacity: .3; }
+.feld.auswahl .spieler g.aktiv { opacity: 1; }
+.spieler g.aktiv circle.trikot { stroke: var(--gelb); stroke-width: 7; }
+.bahn { position: absolute; inset: 0; pointer-events: none; transition: transform .6s cubic-bezier(.3,.7,.3,1); will-change: transform; }
+.bahn.sofort { transition: none; }
+.ball { position: absolute; left: 50%; top: 50%; width: 6.5%; height: auto; aspect-ratio: 1; transform: translate(-50%, -50%);
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,.45)); }
+.tor-meldung { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: .3em .8em;
+  border-radius: 18px; color: #fff; font-weight: 700; font-size: clamp(32px, 7vw, 88px); line-height: 1.05;
+  text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.5); border: 4px solid #fff; white-space: nowrap; }
+.tor-meldung small { display: block; font-size: .4em; }
+
+/* Wortbereich */
+.panel { grid-area: panel; background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: 16px;
+  container-type: inline-size; display: flex; flex-direction: column; justify-content: center; min-height: 0; overflow: auto; }
+.zustand { display: flex; flex-direction: column; gap: 12px; align-items: stretch; text-align: center; }
+.zustand p { margin: 0; }
+.etikett { color: var(--muted); font-size: 18px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+.nummer { font-weight: 700; font-size: min(26cqw, 150px); line-height: 1; font-variant-numeric: tabular-nums; }
+.paar { font-size: 18px; color: var(--muted); line-height: 1.4; }
+.paar b { color: var(--fg); }
+.wort { font-weight: 700; line-height: 1.1; overflow-wrap: break-word; hyphens: auto; }
+.uebersetzung { font-weight: 700; line-height: 1.1; color: var(--fg); overflow-wrap: break-word; min-height: 1.1em; }
+.uebersetzung.offen { color: var(--gelb); }
+.trenner { height: 2px; background: var(--line); margin: 2px 10%; }
+.teamknoepfe { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.teamknoepfe button { color: #fff; border-color: transparent; min-height: 80px; font-size: clamp(20px, 2.4vw, 28px); line-height: 1.15; }
+.teamknoepfe button.F { background: var(--fenster); } .teamknoepfe button.T { background: var(--tuer); }
+.teamknoepfe button small { display: block; font-size: .6em; font-weight: 400; opacity: .9; }
+.reihe { display: flex; gap: 10px; } .reihe .btn { flex: 1; font-size: 16px; padding: 0 8px; }
+.letzte { font-size: 20px; color: var(--muted); line-height: 1.4; min-height: 1.4em; overflow-wrap: break-word; }
+.letzte b { color: var(--fg); }
+.regeln { text-align: left; font-size: 18px; line-height: 1.4; color: var(--muted); }
+.regeln strong { display: block; color: var(--fg); font-size: 20px; margin-bottom: 4px; }
+.regeln ol { margin: 0; padding-left: 1.4em; display: grid; gap: 4px; }
+.klein { font-size: 16px; color: var(--muted); }
+.klein b { color: var(--fg); }
+
+/* Dialoge */
+.dialog { position: fixed; inset: 0; z-index: 40; background: rgba(5,7,10,.75); display: grid; place-items: center;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.dialog .karte { background: var(--panel); border: 2px solid var(--line); border-radius: 18px; padding: 20px 22px; width: min(680px, 100%);
+  max-height: 100%; overflow: auto; box-sizing: border-box; display: grid; gap: 18px; }
+.dialog h2 { margin: 0; font-size: 26px; }
+.feldgruppe { display: grid; gap: 8px; }
+.feldgruppe > span, .feldgruppe > label > span { font-weight: 700; font-size: 18px; }
+.teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stepper { display: flex; align-items: center; gap: 8px; }
+.stepper .wert { font-size: 30px; font-weight: 700; min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
+.stepper .btn { min-width: 52px; font-size: 24px; }
+.teamlabel { display: inline-block; color: #fff; font-weight: 700; padding: 2px 10px; border-radius: 8px; justify-self: start; }
+.wahl { display: flex; flex-wrap: wrap; gap: 8px; }
+.wahl .btn { min-width: 56px; }
+.wahl .btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.listen { display: grid; gap: 8px; }
+.listen .btn { text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 16px; }
+.listen .btn small { font-weight: 400; font-size: 15px; opacity: .75; white-space: nowrap; }
+.listen .btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.hinweis { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.45; }
+.hinweis b { color: var(--fg); }
+.fuss { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
+.fuss .links, .fuss .rechts { display: flex; flex-wrap: wrap; gap: 10px; }
+input[type=text], textarea {
+  font: inherit; font-size: 18px; color: var(--fg); background: var(--bg); border: 2px solid var(--line); border-radius: 12px;
+  padding: 10px 12px; box-sizing: border-box; width: 100%; -webkit-user-select: text; user-select: text;
+}
+input[type=text]:focus, textarea:focus { outline: none; border-color: var(--gelb); }
+textarea { min-height: 240px; resize: vertical; line-height: 1.45; font-size: 17px; }
+.zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.zwei label { display: grid; gap: 6px; }
+.fehler { color: #fca5a5; }
+@media (max-width: 520px) { .teams, .zwei { grid-template-columns: 1fr; } .kopf .rechts .btn { padding: 0 10px; font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .bahn { transition: none; } }
+</style>
+
+<div class="app">
+  <header class="kopf">
+    <a class="zurueck im-fluss" href="../" aria-label="Zurück zur Übersicht">‹ Übersicht</a>
+    <div class="stand" aria-live="polite">
+      <span class="name" id="nameL">Fenster</span>
+      <span class="tore" id="toreL">0</span>
+      <span class="doppelpunkt">:</span>
+      <span class="tore" id="toreR">0</span>
+      <span class="name" id="nameR">Tür</span>
+    </div>
+    <div class="rechts">
+      <button class="btn" id="rueck" type="button" disabled>Rückgängig</button>
+      <button class="btn" id="einst" type="button">Einstellungen</button>
+    </div>
+  </header>
+
+  <div class="feldbox">
+    <div class="feld" id="feld">
+      <svg viewBox="0 0 1050 680" aria-hidden="true">
+        <rect width="1050" height="680" fill="#226b30"/>
+        <g id="streifen"></g>
+        <g fill="none" stroke="#fff" stroke-width="5" stroke-opacity=".85">
+          <rect x="50" y="30" width="950" height="620"/>
+          <line x1="525" y1="30" x2="525" y2="650"/>
+          <circle cx="525" cy="340" r="92"/>
+          <rect x="50" y="138" width="165" height="404"/>
+          <rect x="835" y="138" width="165" height="404"/>
+          <rect x="50" y="248" width="55" height="184"/>
+          <rect x="945" y="248" width="55" height="184"/>
+          <path d="M215 290 A92 92 0 0 1 215 390"/>
+          <path d="M835 290 A92 92 0 0 0 835 390"/>
+        </g>
+        <g fill="#fff" fill-opacity=".85"><circle cx="525" cy="340" r="7"/><circle cx="160" cy="340" r="6"/><circle cx="890" cy="340" r="6"/></g>
+        <g stroke="#fff" stroke-width="6" fill="#fff" fill-opacity=".22">
+          <rect x="16" y="290" width="34" height="100"/>
+          <rect x="1000" y="290" width="34" height="100"/>
+        </g>
+        <g id="marken" fill="#fff" fill-opacity=".55"></g>
+        <g id="spieler" class="spieler" font-family="Atkinson Hyperlegible, system-ui, sans-serif" font-weight="700" text-anchor="middle"></g>
+      </svg>
+      <div class="bahn" id="bahn">
+        <svg class="ball" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="46" fill="#fff" stroke="#111" stroke-width="5"/>
+          <path d="M50 30 L69 44 L62 66 L38 66 L31 44 Z" fill="#111"/>
+          <path d="M50 30 L50 6 M69 44 L92 37 M62 66 L76 86 M38 66 L24 86 M31 44 L8 37" stroke="#111" stroke-width="5"/>
+        </svg>
+      </div>
+      <div class="tor-meldung" id="torMeldung" hidden></div>
+    </div>
+  </div>
+
+  <section class="panel" aria-live="polite">
+    <div class="zustand" id="zBereit">
+      <div class="letzte" id="letzte"></div>
+      <button class="btn gross primaer" id="ziehen" type="button">Nummer ziehen</button>
+      <p class="klein" id="topfInfo"></p>
+    </div>
+    <div class="zustand" id="zNummer" hidden>
+      <p class="etikett">Nach vorne kommen</p>
+      <p class="nummer">Nr. <span id="nr">7</span></p>
+      <p class="paar" id="paar"></p>
+      <button class="btn gross primaer" id="zeigen" type="button">Wort zeigen</button>
+      <button class="btn" id="andere" type="button">Andere Nummer ziehen</button>
+    </div>
+    <div class="zustand" id="zWort" hidden>
+      <p class="etikett" id="wortEtikett">Deutsch</p>
+      <p class="wort" id="wort">der Hund</p>
+      <div class="trenner"></div>
+      <p class="etikett" id="frageEtikett">Auf Englisch?</p>
+      <p class="uebersetzung offen" id="uebersetzung">?</p>
+      <p class="etikett">Wer wusste es zuerst?</p>
+      <div class="teamknoepfe">
+        <button class="btn" id="punktL" type="button"></button>
+        <button class="btn" id="punktR" type="button"></button>
+      </div>
+      <div class="reihe">
+        <button class="btn" id="loesung" type="button">Lösung zeigen</button>
+        <button class="btn" id="keiner" type="button">Keiner</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="dialog" id="dialog" hidden>
+  <div class="karte" role="dialog" aria-modal="true" aria-labelledby="dTitel">
+    <h2 id="dTitel">Einstellungen</h2>
+    <div class="feldgruppe">
+      <span>Vokabelliste</span>
+      <div class="listen" id="listen"></div>
+      <div class="wahl">
+        <button class="btn" type="button" id="neueListe">+ Neue Liste</button>
+        <button class="btn" type="button" id="listeBearbeiten">Liste bearbeiten</button>
+      </div>
+      <p class="hinweis">Eigene Listen bleiben nur auf diesem Gerät gespeichert.</p>
+    </div>
+    <div class="feldgruppe">
+      <span>Abfragen</span>
+      <div class="wahl" id="richtung">
+        <button class="btn" type="button" data-r="hin">Deutsch → Englisch</button>
+        <button class="btn" type="button" data-r="her">Englisch → Deutsch</button>
+        <button class="btn" type="button" data-r="mix">Gemischt</button>
+      </div>
+    </div>
+    <div class="feldgruppe">
+      <span>Spieler pro Team</span>
+      <div class="teams">
+        <div class="feldgruppe"><span class="teamlabel F">Team Fenster</span>
+          <div class="stepper"><button class="btn" type="button" id="aMinus" aria-label="Fenster weniger">−</button><span class="wert" id="aWert">14</span><button class="btn" type="button" id="aPlus" aria-label="Fenster mehr">+</button></div></div>
+        <div class="feldgruppe"><span class="teamlabel T">Team Tür</span>
+          <div class="stepper"><button class="btn" type="button" id="bMinus" aria-label="Tür weniger">−</button><span class="wert" id="bWert">14</span><button class="btn" type="button" id="bPlus" aria-label="Tür mehr">+</button></div></div>
+      </div>
+      <p class="hinweis" id="doppelHinweis"></p>
+    </div>
+    <div class="feldgruppe">
+      <span>Punkte bis zum Tor</span>
+      <div class="wahl" id="schritte">
+        <button class="btn" type="button" data-s="2">2</button>
+        <button class="btn" type="button" data-s="3">3</button>
+        <button class="btn" type="button" data-s="4">4</button>
+        <button class="btn" type="button" data-s="5">5</button>
+      </div>
+      <p class="hinweis">So viele Felder sind es vom Anstoß bis zum Tor. Jeder Punkt schiebt den Ball ein Feld weiter.</p>
+    </div>
+    <div class="feldgruppe">
+      <span>Seiten auf dem Feld</span>
+      <div class="wahl" id="seiten">
+        <button class="btn" type="button" data-links="F">Team Fenster links</button>
+        <button class="btn" type="button" data-links="T">Team Tür links</button>
+      </div>
+    </div>
+    <div class="fuss">
+      <button class="btn" type="button" id="neuesSpiel">Neues Spiel (0 : 0)</button>
+      <button class="btn primaer" type="button" id="fertig">Fertig</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog" id="editor" hidden>
+  <div class="karte" role="dialog" aria-modal="true" aria-labelledby="eTitel">
+    <h2 id="eTitel">Neue Liste</h2>
+    <label class="feldgruppe"><span>Name der Liste</span>
+      <input type="text" id="eName" placeholder="z. B. Unit 3: My family" autocomplete="off" maxlength="60"></label>
+    <div class="zwei">
+      <label><span><b>Sprache links</b></span><input type="text" id="eA" placeholder="Deutsch" autocomplete="off" maxlength="20"></label>
+      <label><span><b>Sprache rechts</b></span><input type="text" id="eB" placeholder="Englisch" autocomplete="off" maxlength="20"></label>
+    </div>
+    <label class="feldgruppe"><span>Wörter, eins pro Zeile</span>
+      <textarea id="eText" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="der Hund = dog&#10;die Katze = cat&#10;das Pferd = horse"></textarea></label>
+    <p class="hinweis">Links und rechts mit <b>=</b> trennen, also <b>der Hund = dog</b>. Auch Tabulator (beim Einfügen aus Excel oder Word), Strichpunkt oder Gedankenstrich gehen.</p>
+    <p class="hinweis" id="eInfo"></p>
+    <div class="fuss">
+      <div class="links"><button class="btn warn" type="button" id="eLoeschen">Liste löschen</button></div>
+      <div class="rechts">
+        <button class="btn" type="button" id="eAbbrechen">Abbrechen</button>
+        <button class="btn primaer" type="button" id="eSpeichern">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const KEY = "vokabelfussball";
+  const NAME = { F: "Fenster", T: "Tür" };
+  const $ = (id) => document.getElementById(id);
+  const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const mischen = (t) => { for (let i = t.length - 1; i > 0; i--) { const j = r(0, i); [t[i], t[j]] = [t[j], t[i]]; } return t; };
+
+  // ---- Beispiellisten (fest eingebaut, nicht änderbar; Bearbeiten legt eine eigene Kopie an) ----
+  const zeilen = (txt) => txt.trim().split("\n").map((z) => z.split(" = "));
+  const BEISPIELE = [
+    { id: "b-schule", name: "Englisch: In der Schule", a: "Deutsch", b: "Englisch", paare: zeilen(`
+der Bleistift = pencil
+der Kuli = pen
+das Heft = exercise book
+die Schultasche = schoolbag
+das Lineal = ruler
+der Radiergummi = rubber
+der Spitzer = pencil sharpener
+die Schere = scissors
+der Kleber = glue
+die Tafel = board
+das Klassenzimmer = classroom
+der Lehrer, die Lehrerin = teacher
+die Hausaufgaben = homework
+das Wörterbuch = dictionary
+der Stundenplan = timetable
+die Pause = break
+das Schulfach = subject
+lernen = to learn
+schreiben = to write
+lesen = to read
+fragen = to ask
+antworten = to answer`) },
+    { id: "b-tiere", name: "Englisch: Tiere", a: "Deutsch", b: "Englisch", paare: zeilen(`
+der Hund = dog
+die Katze = cat
+das Pferd = horse
+die Kuh = cow
+das Schwein = pig
+das Schaf = sheep
+die Maus = mouse
+der Vogel = bird
+der Fisch = fish
+das Kaninchen = rabbit
+das Meerschweinchen = guinea pig
+der Elefant = elephant
+die Schlange = snake
+der Frosch = frog
+die Ente = duck
+das Huhn = chicken
+der Bär = bear
+der Affe = monkey
+die Biene = bee
+der Schmetterling = butterfly
+die Schildkröte = turtle
+der Wellensittich = budgie`) },
+    { id: "b-verben", name: "Englisch: Unregelmäßige Verben", a: "Deutsch", b: "Englisch", paare: zeilen(`
+sein = be – was/were – been
+haben = have – had – had
+gehen = go – went – gone
+sehen = see – saw – seen
+essen = eat – ate – eaten
+trinken = drink – drank – drunk
+schreiben = write – wrote – written
+nehmen = take – took – taken
+geben = give – gave – given
+kommen = come – came – come
+machen = make – made – made
+finden = find – found – found
+kaufen = buy – bought – bought
+denken = think – thought – thought
+schwimmen = swim – swam – swum
+fliegen = fly – flew – flown
+sprechen = speak – spoke – spoken
+lesen = read – read – read
+schlafen = sleep – slept – slept
+laufen, rennen = run – ran – run`) },
+    { id: "b-franz", name: "Französisch: Farben und Zahlen", a: "Deutsch", b: "Französisch", paare: zeilen(`
+rot = rouge
+blau = bleu
+grün = vert
+gelb = jaune
+schwarz = noir
+weiß = blanc
+grau = gris
+braun = marron
+rosa = rose
+lila = violet
+eins = un
+zwei = deux
+drei = trois
+vier = quatre
+fünf = cinq
+sechs = six
+sieben = sept
+acht = huit
+neun = neuf
+zehn = dix`) }
+  ];
+
+  // ---- Zustand (nur lokal auf diesem Gerät) ----
+  const neu = () => ({
+    cfg: { a: 14, b: 14, schritte: 3, links: "F", liste: "b-tiere", richtung: "hin" },
+    tore: { F: 0, T: 0 }, p: 0, topf: [], wtopf: [], wliste: null, verlauf: [], letzte: null, eigene: []
+  });
+  let st = neu();
+  try { const g = JSON.parse(localStorage.getItem(KEY) || "null"); if (g && g.cfg) st = Object.assign(neu(), g, { cfg: Object.assign(neu().cfg, g.cfg) }); } catch (e) {}
+  const speichern = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+
+  let runde = null; // { nr, frage, antwort, von, nach }
+
+  const alleListen = () => [...st.eigene, ...BEISPIELE];
+  const liste = () => alleListen().find((l) => l.id === st.cfg.liste) || BEISPIELE[1];
+  const istBeispiel = (l) => l.id.startsWith("b-");
+
+  const links = () => st.cfg.links;
+  const rechts = () => (st.cfg.links === "F" ? "T" : "F");
+  const groesse = (t) => (t === "F" ? st.cfg.a : st.cfg.b);
+  const maxNr = () => Math.max(st.cfg.a, st.cfg.b);
+  // Welches Kind spielt Nummer nr? Im kleineren Team übernehmen Nr. 1, 2, ... die fehlenden Nummern.
+  const kindFuer = (t, nr) => { const n = groesse(t); return nr <= n ? nr : ((nr - n - 1) % n) + 1; };
+  const zusatzNummern = (t, kind) => { const out = []; for (let nr = groesse(t) + 1; nr <= maxNr(); nr++) if (kindFuer(t, nr) === kind) out.push(nr); return out; };
+
+  // ---- Vokabeln: jedes Wort kommt einmal dran, dann wird neu gemischt ----
+  function naechstesWort() {
+    const l = liste(), n = l.paare.length;
+    if (st.wliste !== l.id) { st.wliste = l.id; st.wtopf = []; }
+    st.wtopf = st.wtopf.filter((i) => i < n);
+    if (!st.wtopf.length) st.wtopf = mischen(Array.from({ length: n }, (_, i) => i));
+    const [x, y] = l.paare[st.wtopf.pop()];
+    const hin = st.cfg.richtung === "hin" || (st.cfg.richtung === "mix" && Math.random() < .5);
+    return hin ? { frage: x, antwort: y, von: l.a, nach: l.b } : { frage: y, antwort: x, von: l.b, nach: l.a };
+  }
+
+  // Eingefügten Text in Wortpaare zerlegen. Getrennt wird beim ersten passenden Zeichen,
+  // damit z. B. "gehen = go – went – gone" heil bleibt.
+  function zerlegen(txt) {
+    const paare = [], fehler = [];
+    for (const roh of txt.split(/\r?\n/)) {
+      const z = roh.trim(); if (!z) continue;
+      let teile = null;
+      for (const t of ["\t", "=", ";", " – ", " — ", " - "]) {
+        const i = z.indexOf(t);
+        if (i > 0) { teile = [z.slice(0, i).trim(), z.slice(i + t.length).trim()]; break; }
+      }
+      if (teile && teile[0] && teile[1]) paare.push(teile); else fehler.push(z);
+    }
+    return { paare, fehler };
+  }
+
+  // Schriftgröße so wählen, dass auch lange Wörter in den Kasten passen
+  function passend(elm, text, max) {
+    const n = Math.max(4, Math.max(...String(text).split(/\s+/).map((w) => w.length)) * .6 + String(text).length * .25);
+    const cq = Math.max(6, Math.min(max, 110 / n));
+    elm.style.fontSize = `min(${cq.toFixed(1)}cqw, ${Math.round(cq * 7)}px)`;
+  }
+
+  // ---- Nummern-Topf: jede Nummer kommt einmal dran, dann wird neu gemischt ----
+  function ziehe() {
+    st.topf = st.topf.filter((n) => n <= maxNr());
+    if (!st.topf.length) {
+      const t = mischen(Array.from({ length: maxNr() }, (_, i) => i + 1));
+      if (runde && t.length > 1 && t[t.length - 1] === runde.nr) [t[0], t[t.length - 1]] = [t[t.length - 1], t[0]];
+      st.topf = t;
+    }
+    return st.topf.pop();
+  }
+
+  // ---- Spielfeld zeichnen ----
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, text) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+
+  (function streifen() { const g = $("streifen"); for (let i = 0; i < 10; i++) g.appendChild(el("rect", { x: 50 + i * 95, y: 30, width: 95, height: 620, fill: i % 2 ? "#2a7f39" : "#2f8a40" })); })();
+
+  function zeichneSpieler() {
+    const g = $("spieler"); g.textContent = "";
+    for (const seite of ["L", "R"]) {
+      const t = seite === "L" ? links() : rechts();
+      const n = groesse(t);
+      const spalten = Math.ceil(n / 5), zeilen = Math.ceil(n / spalten);
+      const farbe = t === "F" ? "#2563eb" : "#ea580c";
+      for (let k = 1; k <= n; k++) {
+        const sp = Math.floor((k - 1) / zeilen), ze = (k - 1) % zeilen;
+        const inZeile = Math.min(zeilen, n - sp * zeilen);
+        const xL = spalten === 1 ? 300 : 135 + sp * (320 / (spalten - 1));
+        const x = seite === "L" ? xL : 1050 - xL;
+        const y = 340 + (ze - (inZeile - 1) / 2) * Math.min(118, 500 / Math.max(1, zeilen - 1));
+        const gr = el("g", { "data-t": t, "data-k": k });
+        gr.appendChild(el("circle", { class: "trikot", cx: x, cy: y, r: 31, fill: farbe, stroke: "#fff", "stroke-width": 4 }));
+        gr.appendChild(el("text", { x, y: y + 12, "font-size": 34, fill: "#fff" }, k));
+        const extra = zusatzNummern(t, k);
+        if (extra.length) {
+          const txt = extra.join("/"), w = 14 + txt.length * 11;
+          gr.appendChild(el("rect", { x: x + 14, y: y - 44, width: w, height: 26, rx: 13, fill: "#fff" }));
+          gr.appendChild(el("text", { x: x + 14 + w / 2, y: y - 25, "font-size": 19, fill: farbe }, txt));
+        }
+        g.appendChild(gr);
+      }
+    }
+    const m = $("marken"); m.textContent = "";
+    const S = st.cfg.schritte;
+    for (let p = -S + 1; p <= S - 1; p++) if (p) m.appendChild(el("circle", { cx: 525 + (p / S) * 475, cy: 340, r: 6 }));
+  }
+
+  function markiere(nr) {
+    const feld = $("feld");
+    feld.classList.toggle("auswahl", nr != null);
+    const alle = Array.from($("spieler").children), aktive = [];
+    for (const g of alle) {
+      const an = nr != null && +g.dataset.k === kindFuer(g.dataset.t, nr);
+      g.classList.toggle("aktiv", an);
+      const c = g.querySelector("circle.trikot"), t = g.querySelector("text");
+      c.setAttribute("r", an ? 40 : 31); t.setAttribute("font-size", an ? 44 : 34);
+      t.setAttribute("y", +c.getAttribute("cy") + (an ? 15 : 12));
+      if (an) aktive.push(g);
+    }
+    for (const g of aktive) g.parentNode.appendChild(g);
+  }
+
+  // Ball: p = 0 Anstoß, +S rechtes Tor, −S linkes Tor
+  function ballSetzen(p, sofort) {
+    const S = st.cfg.schritte;
+    const v = Math.max(-1, Math.min(1, p / S));
+    const x = (v * (Math.abs(v) === 1 ? 497 : 475)) / 1050 * 100;
+    const b = $("bahn");
+    b.classList.toggle("sofort", !!sofort);
+    b.style.transform = `translateX(${x}%)`;
+    if (sofort) { void b.offsetWidth; b.classList.remove("sofort"); }
+  }
+
+  // ---- Anzeige ----
+  function anzeigen(zustand) {
+    $("zBereit").hidden = zustand !== "bereit";
+    $("zNummer").hidden = zustand !== "nummer";
+    $("zWort").hidden = zustand !== "wort";
+  }
+  function standAnzeigen() {
+    const L = links(), R = rechts();
+    $("nameL").innerHTML = `<small>Team</small>${NAME[L]}`; $("nameL").className = "name " + L;
+    $("nameR").innerHTML = `<small>Team</small>${NAME[R]}`; $("nameR").className = "name " + R;
+    $("toreL").textContent = st.tore[L]; $("toreR").textContent = st.tore[R];
+    $("rueck").disabled = !st.verlauf.length;
+    for (const [id, t] of [["punktL", L], ["punktR", R]]) {
+      const b = $(id); b.className = "btn " + t; b.innerHTML = `<small>Punkt für</small>${NAME[t]}`;
+    }
+    const l = liste();
+    $("topfInfo").innerHTML = `Liste: <b>${esc(l.name)}</b> (${l.paare.length} Wörter)`;
+    const z = st.letzte;
+    $("letzte").innerHTML = z ? `Zuletzt: <b>${esc(z.frage)} = ${esc(z.antwort)}</b>${z.team ? `<br>Punkt für ${NAME[z.team]}` : "<br>Kein Punkt"}` : `<span class="regeln"><strong>Regeln</strong><ol>
+      <li>Die Klasse wird in zwei Teams eingeteilt: Team Fenster und Team Tür.</li>
+      <li>Jeder aus seinem Team bekommt eine Nummer.</li>
+      <li>Beide Kinder mit der gezogenen Nummer übersetzen um die Wette.</li>
+      <li>Wer zuerst richtig übersetzt, schiebt den Ball ein Feld Richtung Tor.</li></ol></span>`;
+  }
+
+  function paarText(nr) {
+    return ["F", "T"].map((t) => {
+      const k = kindFuer(t, nr);
+      return `${NAME[t]}: <b>Nr. ${k}</b>${k !== nr ? ` (spielt auch die ${nr})` : ""}`;
+    }).join("<br>");
+  }
+
+  // ---- Ablauf ----
+  function nummerZiehen() {
+    const nr = ziehe();
+    runde = { nr };
+    speichern();
+    $("nr").textContent = nr;
+    $("paar").innerHTML = paarText(nr);
+    markiere(nr);
+    anzeigen("nummer");
+  }
+  function wortZeigen() {
+    const w = naechstesWort();
+    Object.assign(runde, w);
+    speichern();
+    $("wortEtikett").textContent = w.von;
+    $("frageEtikett").textContent = `Auf ${w.nach}?`;
+    $("wort").textContent = w.frage; passend($("wort"), w.frage, 15);
+    $("uebersetzung").textContent = "?"; $("uebersetzung").classList.add("offen"); passend($("uebersetzung"), "?", 11);
+    anzeigen("wort");
+  }
+  function loesungZeigen() {
+    const u = $("uebersetzung");
+    u.textContent = runde.antwort; u.classList.remove("offen"); passend(u, runde.antwort, 11);
+  }
+
+  function punkt(team) {
+    st.verlauf.push({ tore: { ...st.tore }, p: st.p, letzte: st.letzte });
+    if (st.verlauf.length > 30) st.verlauf.shift();
+    st.letzte = { frage: runde.frage, antwort: runde.antwort, team: team || null };
+    runde = null;
+    markiere(null);
+    if (team) {
+      st.p += team === links() ? 1 : -1;
+      ballSetzen(st.p);
+      if (Math.abs(st.p) >= st.cfg.schritte) {
+        st.tore[team]++;
+        st.p = 0;
+        torJubel(team);
+      }
+    }
+    speichern(); standAnzeigen(); anzeigen("bereit");
+  }
+  let torTimer = 0, torTimer2 = 0;
+  function torJubel(team) {
+    const m = $("torMeldung");
+    m.className = "tor-meldung " + team; m.innerHTML = `TOR!<small>für ${NAME[team]}</small>`;
+    clearTimeout(torTimer); clearTimeout(torTimer2);
+    torTimer = setTimeout(() => { m.hidden = false; }, 550);
+    torTimer2 = setTimeout(() => { m.hidden = true; ballSetzen(st.p); }, 2600);
+  }
+
+  function rueckgaengig() {
+    const v = st.verlauf.pop(); if (!v) return;
+    clearTimeout(torTimer); clearTimeout(torTimer2); $("torMeldung").hidden = true;
+    st.tore = v.tore; st.p = v.p; st.letzte = v.letzte;
+    ballSetzen(st.p); speichern(); standAnzeigen();
+  }
+
+  // ---- Einstellungen ----
+  function dialogAnzeigen() {
+    const c = st.cfg, l = liste();
+    const box = $("listen"); box.textContent = "";
+    for (const x of alleListen()) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "btn"; b.dataset.id = x.id;
+      b.setAttribute("aria-pressed", x.id === l.id);
+      b.innerHTML = `<span>${esc(x.name)}</span><small>${x.paare.length} Wörter${istBeispiel(x) ? " · Beispiel" : ""}</small>`;
+      box.appendChild(b);
+    }
+    $("listeBearbeiten").textContent = istBeispiel(l) ? "Als eigene Liste kopieren" : "Liste bearbeiten";
+    const [hin, her] = $("richtung").children;
+    hin.textContent = `${l.a} → ${l.b}`; her.textContent = `${l.b} → ${l.a}`;
+    for (const b of $("richtung").children) b.setAttribute("aria-pressed", b.dataset.r === c.richtung);
+    $("aWert").textContent = c.a; $("bWert").textContent = c.b;
+    for (const b of $("schritte").children) b.setAttribute("aria-pressed", +b.dataset.s === c.schritte);
+    for (const b of $("seiten").children) b.setAttribute("aria-pressed", b.dataset.links === c.links);
+    const d = c.a - c.b;
+    if (!d) $("doppelHinweis").innerHTML = "Beide Teams gleich groß: Jede Nummer gibt es genau zweimal.";
+    else {
+      const klein = d > 0 ? "T" : "F", fehl = Math.abs(d);
+      const liste = Array.from({ length: fehl }, (_, i) => `Nr. ${kindFuer(klein, groesse(klein) + i + 1)} spielt auch die ${groesse(klein) + i + 1}`).join(", ");
+      $("doppelHinweis").innerHTML = `Team ${NAME[klein]} hat ${fehl === 1 ? "ein Kind" : fehl + " Kinder"} weniger: <b>${liste}</b>.`;
+    }
+  }
+  function aendern(f) { f(st.cfg); dialogAnzeigen(); zeichneSpieler(); markiere(runde && runde.nr); ballSetzen(st.p, true); standAnzeigen(); speichern(); }
+  const grenze = (v) => Math.max(1, Math.min(20, v));
+  $("aMinus").onclick = () => aendern((c) => c.a = grenze(c.a - 1));
+  $("aPlus").onclick = () => aendern((c) => c.a = grenze(c.a + 1));
+  $("bMinus").onclick = () => aendern((c) => c.b = grenze(c.b - 1));
+  $("bPlus").onclick = () => aendern((c) => c.b = grenze(c.b + 1));
+  $("listen").onclick = (e) => { const id = e.target.closest("button")?.dataset.id; if (id) aendern((c) => c.liste = id); };
+  $("richtung").onclick = (e) => { const v = e.target.closest("button")?.dataset.r; if (v) aendern((c) => c.richtung = v); };
+  $("schritte").onclick = (e) => { const s = e.target.closest("button")?.dataset.s; if (s) aendern((c) => { c.schritte = +s; if (Math.abs(st.p) >= c.schritte) st.p = Math.sign(st.p) * (c.schritte - 1); }); };
+  $("seiten").onclick = (e) => { const l = e.target.closest("button")?.dataset.links; if (l && l !== st.cfg.links) aendern((c) => { c.links = l; st.p = -st.p; }); };
+  $("neuesSpiel").onclick = () => { st.tore = { F: 0, T: 0 }; st.p = 0; st.topf = []; st.wtopf = []; st.verlauf = []; st.letzte = null; runde = null;
+    markiere(null); ballSetzen(0, true); speichern(); standAnzeigen(); anzeigen("bereit"); $("dialog").hidden = true; };
+  $("einst").onclick = () => { dialogAnzeigen(); $("dialog").hidden = false; };
+  $("fertig").onclick = () => { $("dialog").hidden = true; };
+  $("dialog").onclick = (e) => { if (e.target === $("dialog")) $("dialog").hidden = true; };
+
+  // ---- Listen-Editor ----
+  let bearbeite = null; // id der eigenen Liste oder null für neu
+  function editorOeffnen(l, kopie) {
+    bearbeite = l && !kopie ? l.id : null;
+    $("eTitel").textContent = bearbeite ? "Liste bearbeiten" : "Neue Liste";
+    $("eName").value = l ? (kopie ? l.name + " (Kopie)" : l.name) : "";
+    $("eA").value = l ? l.a : "Deutsch"; $("eB").value = l ? l.b : "Englisch";
+    $("eText").value = l ? l.paare.map((p) => p.join(" = ")).join("\n") : "";
+    $("eLoeschen").hidden = !bearbeite; delete $("eLoeschen").dataset.sicher; $("eLoeschen").textContent = "Liste löschen";
+    editorInfo();
+    $("editor").hidden = false;
+  }
+  function editorInfo() {
+    const { paare, fehler } = zerlegen($("eText").value);
+    let t = `<b>${paare.length}</b> ${paare.length === 1 ? "Wortpaar" : "Wortpaare"} erkannt.`;
+    if (fehler.length) t += ` <span class="fehler">${fehler.length === 1 ? "Eine Zeile hat" : fehler.length + " Zeilen haben"} kein Trennzeichen: ${esc(fehler.slice(0, 3).join(", "))}${fehler.length > 3 ? " …" : ""}</span>`;
+    $("eInfo").innerHTML = t;
+    $("eSpeichern").disabled = !paare.length;
+  }
+  $("eText").oninput = editorInfo;
+  $("neueListe").onclick = () => editorOeffnen(null);
+  $("listeBearbeiten").onclick = () => { const l = liste(); editorOeffnen(l, istBeispiel(l)); };
+  $("eAbbrechen").onclick = () => { $("editor").hidden = true; };
+  $("eSpeichern").onclick = () => {
+    const { paare } = zerlegen($("eText").value); if (!paare.length) return;
+    const daten = { name: $("eName").value.trim() || "Meine Liste", a: $("eA").value.trim() || "Deutsch", b: $("eB").value.trim() || "Englisch", paare };
+    if (bearbeite) Object.assign(st.eigene.find((x) => x.id === bearbeite), daten);
+    else { const id = "e-" + Date.now().toString(36); st.eigene.push({ id, ...daten }); st.cfg.liste = id; }
+    st.wtopf = []; st.wliste = null;
+    $("editor").hidden = true; aendern(() => {});
+  };
+  $("eLoeschen").onclick = () => {
+    if (!bearbeite) return;
+    const btn = $("eLoeschen");
+    if (!btn.dataset.sicher) { btn.dataset.sicher = "1"; btn.textContent = "Wirklich löschen?"; return; }
+    st.eigene = st.eigene.filter((x) => x.id !== bearbeite);
+    if (st.cfg.liste === bearbeite) st.cfg.liste = BEISPIELE[1].id;
+    $("editor").hidden = true; aendern(() => {});
+  };
+
+  $("ziehen").onclick = nummerZiehen;
+  $("andere").onclick = nummerZiehen;
+  $("zeigen").onclick = wortZeigen;
+  $("loesung").onclick = loesungZeigen;
+  $("keiner").onclick = () => punkt(null);
+  $("punktL").onclick = () => punkt(links());
+  $("punktR").onclick = () => punkt(rechts());
+  $("rueck").onclick = rueckgaengig;
+
+  zeichneSpieler(); ballSetzen(st.p, true); standAnzeigen(); anzeigen("bereit");
+})();
+</script>
