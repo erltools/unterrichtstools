@@ -75,7 +75,7 @@ switch ($action) {
     $dateien = glob(DIR . '/*.json') ?: [];
     $gesamt = strlen($json);
     foreach ($dateien as $f) $gesamt += (int)@filesize($f);
-    if (count($dateien) >= MAX_LISTEN || $gesamt > MAX_GESAMT) fail('Gerade können keine Listen geteilt werden. Bitte später erneut versuchen.', 503);
+    if (count($dateien) >= MAX_LISTEN || $gesamt > MAX_GESAMT) fail('Der Speicherplatz für geteilte Listen ist voll. Bitte wenden Sie sich an den Betreiber dieser Seite (Kontakt im Impressum). Ihre Listen auf diesem Gerät funktionieren weiterhin.', 507);
     $versuche = 0;
     do {
       $code = '';
